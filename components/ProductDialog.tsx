@@ -32,7 +32,7 @@ interface ProductDraft {
   unitId?: number | null;
   lifetime?: string | null;     // shelf life label
   lowStock?: number | null;     // threshold
-  buyPrice?: number;            // singles only; for recipe we send batch cost
+  buyPrice?: number;            // per-unit cost (for recipes, this is per-unit)
   sellPrice?: number;           // required for both
   imageUrl?: string | null;
 
@@ -40,6 +40,9 @@ interface ProductDraft {
   saleMode?: ProductSaleMode;
   productsMade?: number | null; // YIELD (how many finished units the batch produces)
   components?: IngredientLine[];
+
+  // additional field we now pass for recipes (per-unit too)
+  unitCost?: number;
 
   // local only
   imageFile?: File | null;
@@ -88,7 +91,7 @@ const ProductDialog: React.FC<{
       id: l.id || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       name: l.name || "",
       measurement: l.measurement == null ? "" : String(l.measurement),
-      unitCost: typeof l.unitCost === "number" ? l.unitCost : Number(l.unitCost ?? 0)
+      unitCost: typeof l.unitCost === "number" ? l.unitCost : Number(l.unitCost ?? 0),
     }));
     setLines(norm);
   }, [open, initial]);
@@ -188,12 +191,14 @@ const ProductDialog: React.FC<{
       if (!Number.isFinite(Number(form.buyPrice))) { alert("Enter a valid buying price."); return; }
     }
 
+    // Always persist per-unit for recipes; also pass unitCost = per-unit.
     const payload: Partial<ProductDraft> =
       isRecipe
         ? {
             ...form,
             productsMade: yieldCount,
-            buyPrice: batchCost, // send batch cost; per-unit derived on client/back-end
+            buyPrice: Number(perUnitCost.toFixed(2)), // per-unit only
+            unitCost: Number(perUnitCost.toFixed(2)), // pass unitCost (per-unit) to BE instead of any recipe total
             components: lines.map(l => ({
               id: l.id,
               name: l.name.trim(),
@@ -337,8 +342,7 @@ const ProductDialog: React.FC<{
               fullWidth
               value={form.lowStock ?? ""}
               onChange={(e) =>
-                setForm({ ...form, lowStock: e.target.value === "" ? null : Number(e.target.value) })
-              }
+                setForm({ ...form, lowStock: e.target.value === "" ? null : Number(e.target.value) })}
               inputProps={{ min: 0 }}
             />
           </Grid>
@@ -351,7 +355,8 @@ const ProductDialog: React.FC<{
                 type="number"
                 fullWidth
                 value={form.buyPrice ?? ""}
-                onChange={(e) => setForm({ ...form, buyPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
+                onChange={(e) =>
+                  setForm({ ...form, buyPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
               />
             </Grid>
           )}
@@ -361,7 +366,8 @@ const ProductDialog: React.FC<{
               type="number"
               fullWidth
               value={form.sellPrice ?? ""}
-              onChange={(e) => setForm({ ...form, sellPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
+              onChange={(e) =>
+                setForm({ ...form, sellPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
             />
           </Grid>
 
@@ -374,8 +380,7 @@ const ProductDialog: React.FC<{
                 fullWidth
                 value={form.productsMade ?? 1}
                 onChange={(e) =>
-                  setForm({ ...form, productsMade: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value)) })
-                }
+                  setForm({ ...form, productsMade: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value)) })}
                 inputProps={{ min: 1 }}
                 helperText="How many finished units this batch produces"
               />
@@ -467,7 +472,8 @@ const ProductDialog: React.FC<{
                           type="number"
                           placeholder="e.g., 10"
                           value={l.unitCost ?? ""}
-                          onChange={(e) => updateLine(l.id, "unitCost", e.target.value === "" ? null : Number(e.target.value))}
+                          onChange={(e) =>
+                            updateLine(l.id, "unitCost", e.target.value === "" ? null : Number(e.target.value))}
                         />
                       </TableCell>
                       <TableCell align="center">

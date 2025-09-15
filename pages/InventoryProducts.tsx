@@ -30,7 +30,7 @@ interface ProductRow {
   categoryId?: number | null;
   unit?: string | null;
   unitId?: number | null;
-  buyPrice: number;   // includes recipeCost for recipes
+  buyPrice: number;   // per-unit (always)
   sellPrice: number;
   imageUrl?: string | null;
 }
@@ -88,7 +88,8 @@ const InventoryProducts: React.FC = () => {
             : null);
         const unitLabel = unitName ? `${unitName}${unitAbbr ? ` (${unitAbbr})` : ""}` : null;
 
-        const buy = Number((p as any).recipeCost ?? p.buyPrice);
+        // ✅ Always use per-unit buyPrice (BE now stores per-unit for both types)
+        const buy = Number(p.buyPrice);
 
         return {
           id: p.id,
@@ -138,7 +139,7 @@ const InventoryProducts: React.FC = () => {
   // helper to normalize a ProductDTO into ProductRow
   const toRow = (p: any): ProductRow => {
     const unitLabel = p.unitName ? `${p.unitName}${p.unitAbbr ? ` (${p.unitAbbr})` : ""}` : null;
-    const buy = Number((p as any).recipeCost ?? p.buyPrice);
+    const buy = Number(p.buyPrice); // ✅ per-unit
     return {
       id: p.id,
       sku: p.sku,
@@ -154,7 +155,7 @@ const InventoryProducts: React.FC = () => {
     };
   };
 
-  // ⬇️ top-level handlers (were incorrectly inside map before)
+  // ⬇️ top-level handlers
   const openPreview = async (row: ProductRow) => {
     setPreviewFor({ id: row.id, name: row.name });
     setPreviewOpen(true);
@@ -301,6 +302,8 @@ const InventoryProducts: React.FC = () => {
                 categoryId: payload.categoryId ?? null,
                 unitId: payload.unitId ?? null,
                 sellPrice: Number(payload.sellPrice),
+                // ✅ persist per-unit buying price from dialog
+                buyPrice: Number(payload.buyPrice),
                 lifetime: payload.lifetime ?? null,
                 lowStock: payload.lowStock ?? null,
                 saleMode: payload.saleMode ?? undefined, // if present
@@ -311,6 +314,8 @@ const InventoryProducts: React.FC = () => {
                   measurement: String(l.measurement ?? ""),
                   unitCost: Number(l.unitCost ?? 0),
                 })),
+                // optional: send batch total for preview/audit if BE supports it
+                // recipeCost: Number(payload.recipeCost ?? 0),
               };
 
               const created = hasImage
