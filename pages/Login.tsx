@@ -31,7 +31,7 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await login(username, password);
-      nav("/customers");
+      nav("/cash-till");
     } catch (err) {
       setError("Invalid username or password");
     } finally {

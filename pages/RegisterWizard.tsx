@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { setAuthToken } from "../api/client";
 
-// inside registerStep1, before api.post(...)
-
 import { endpoints, AuthResponse, RegisterRequest, NewUserSetupRequest } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 
@@ -39,6 +37,9 @@ type Step2 = {
   bizName?: string; bizLocation?: string;
   bizLogo: UploadState;
 };
+
+type MeResponse = { id?: number; userId?: number; username?: string; email?: string };
+type TerminalDTO = { id: number; name: string; code: string; active: boolean; createdAt?: string; updatedAt?: string; location?: string | null };
 
 const strength = (pwd: string) => {
   let score = 0;
@@ -90,7 +91,32 @@ const RegisterWizard: React.FC = () => {
       setS2((prev) => ({ ...prev, [key]: { file, preview: url } }));
     };
 
-  // Step 1 -> register user, then sign in
+  async function bootstrapContextAfterLogin() {
+    // 1) get user id from /auth/me (or similar) and store activeUserId
+    try {
+      const { data: me } = await api.get<MeResponse>(endpoints.auth.me);
+      const uid = (me?.id ?? me?.userId);
+      if (uid != null) localStorage.setItem("activeUserId", String(uid));
+    } catch {
+      // If /auth/me is unavailable, leave activeUserId unset; backend may infer from token if supported
+    }
+
+    // 2) ensure default terminal exists; then store activeTerminalId
+    try {
+      let { data: terms } = await api.get<TerminalDTO[]>("/api/terminals");
+      if (!Array.isArray(terms) || terms.length === 0) {
+        // idempotent create on server
+        const { data: def } = await api.post<TerminalDTO>("/api/terminals/default");
+        localStorage.setItem("activeTerminalId", String(def.id));
+      } else {
+        localStorage.setItem("activeTerminalId", String(terms[0].id));
+      }
+    } catch {
+      // swallow; user can still proceed, server may fallback to default terminal creation via listener
+    }
+  }
+
+  // Step 1 -> register user, then sign in, then bootstrap terminal
   const registerStep1 = async () => {
     setErrS1(null); setSavingS1(true);
     setAuthToken(null);
@@ -102,6 +128,9 @@ const RegisterWizard: React.FC = () => {
 
       // Immediately sign in so we can call the protected setup endpoint
       await login(username, s1.password);
+
+      // Bootstrap: set activeUserId & activeTerminalId (default)
+      await bootstrapContextAfterLogin();
 
       setActive(1);
     } catch (e: any) {
@@ -130,7 +159,7 @@ const RegisterWizard: React.FC = () => {
       if (s2.idDoc.file)  form.append("idDoc", s2.idDoc.file);
       if (s2.bizLogo.file) form.append("bizLogo", s2.bizLogo.file);
 
-await api.post(endpoints.user.setup, form);
+      await api.post(endpoints.user.setup, form);
       nav("/customers");
     } catch (e: any) {
       setErrS2(e?.response?.data?.message || "Failed to complete setup.");

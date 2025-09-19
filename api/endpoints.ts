@@ -30,8 +30,18 @@ export const endpoints = {
     base: "/api/suppliers",
     search: (q: string) => `/api/suppliers?search=${encodeURIComponent(q)}`,
   },
+// Till endpoints - COMPLETE DEFINITION
   till: {
-    checkout: "/api/cash-till/checkout",
+    base: '/api/tills',                    // Base URL
+    active: '/api/tills/active',           // Get active till
+    open: '/api/tills/open',               // Open new till
+    close: (id: string | number) => `/api/tills/${id}/close`,  // Close till
+    summary: (id: string | number) => `/api/tills/${id}/summary`, // Till summary
+    cashIn: (id: string | number) => `/api/tills/${id}/cash-in`,   // Cash in
+    cashOut: (id: string | number) => `/api/tills/${id}/cash-out`, // Cash out
+    recordSale: (id: string | number) => `/api/tills/${id}/record-sale`, // Record sale
+    refund: (id: string | number) => `/api/tills/${id}/refund`,    // Process refund
+    checkout: '/api/cash-till/checkout',   // Checkout endpoint
   },
   transactions: {
     base: "/api/transactions",

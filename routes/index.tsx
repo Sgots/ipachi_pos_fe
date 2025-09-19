@@ -41,7 +41,7 @@ export const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <Shell>
-              <Navigate to="/customers" replace />
+              <Navigate to="/cash-till" replace />
             </Shell>
           </ProtectedRoute>
         }
@@ -148,7 +148,7 @@ export const AppRoutes: React.FC = () => {
       </ProtectedRoute>
     }
   />
-      <Route path="*" element={<Navigate to="/customers" replace />} />
+      <Route path="*" element={<Navigate to="/cash-till" replace />} />
     </Routes>
   );
 };
