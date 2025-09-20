@@ -1,4 +1,4 @@
-// src/pages/Account.tsx - Fixed all TypeScript errors
+// src/pages/Account.tsx - Pill-style tabs to match Inventory (fixed Promise.all syntax)
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -21,12 +21,7 @@ import {
   Link,
   LinearProgress,
 } from "@mui/material";
-import {
-  Upload as UploadIcon, // FIXED: Import from @mui/icons-material
-} from "@mui/icons-material";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import { AxiosProgressEvent } from "axios"; // FIXED: Correct Axios progress type
+import { AxiosProgressEvent } from "axios";
 import client from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -61,14 +56,53 @@ type BusinessProfileDTO = {
   updatedAt?: string;
 };
 
-// FIXED: Updated User type to include email (or use type assertion)
 interface ExtendedUser {
   id?: number;
   username: string;
-  email?: string; // FIXED: Added optional email property
+  email?: string;
   roles?: string[];
   token?: string;
 }
+
+/** Local pill tabs component (matches Inventory look & feel) */
+const PillTabs: React.FC<{
+  value: number;
+  labels: string[];
+  onChange: (index: number) => void;
+  sx?: any;
+}> = ({ value, labels, onChange, sx }) => {
+  return (
+    <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", ...sx }}>
+      {labels.map((label, idx) => {
+        const active = value === idx;
+        return (
+          <Button
+            key={label}
+            variant={active ? "contained" : "outlined"}
+            size="small"
+            onClick={() => onChange(idx)}
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              px: 2.5,
+              py: 1,
+              fontWeight: 600,
+              bgcolor: active ? "#caa63d" : undefined, // gold-ish active
+              borderColor: active ? "#caa63d" : undefined,
+              color: active ? "#1f2937" : undefined, // slate-800 on active
+              "&:hover": {
+                bgcolor: active ? "#b8932f" : undefined,
+                borderColor: active ? "#b8932f" : undefined,
+              },
+            }}
+          >
+            {label}
+          </Button>
+        );
+      })}
+    </Box>
+  );
+};
 
 const Account: React.FC = () => {
   const { user, logout } = useAuth();
@@ -99,7 +133,12 @@ const Account: React.FC = () => {
   });
 
   // Settings / security
-  const [settings, setSettings] = useState({ currency: "PHP", abbreviation: "P", vat: "12", applyVat: false });
+  const [settings, setSettings] = useState({
+    currency: "PHP",
+    abbreviation: "P",
+    vat: "12",
+    applyVat: false,
+  });
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -125,12 +164,9 @@ const Account: React.FC = () => {
     return `${window.location.protocol}//${window.location.hostname}:8080${path}`;
   };
 
-  // FIXED: Safe user initial helper function
   const getUserInitial = (): string | null => {
     if (!user) return null;
-
-    // FIXED: Safe access to email or fallback to username
-    const displayName = (user as ExtendedUser).email || user.username || '';
+    const displayName = (user as ExtendedUser).email || user.username || "";
     return displayName.charAt(0).toUpperCase() || null;
   };
 
@@ -183,15 +219,11 @@ const Account: React.FC = () => {
   // Fetch authenticated profile picture as blob whenever pictureUrl or hasPicture changes
   useEffect(() => {
     let cancelled = false;
-    // clean up previous blob if any
     const cleanup = () => {
-      if (profileBlobUrl) {
-        URL.revokeObjectURL(profileBlobUrl);
-      }
+      if (profileBlobUrl) URL.revokeObjectURL(profileBlobUrl);
     };
 
     const fetchProfilePicture = async () => {
-      // revoke old
       cleanup();
       setProfileBlobUrl(null);
 
@@ -200,7 +232,6 @@ const Account: React.FC = () => {
 
       const fullUrl = resolveAssetUrl(path);
       try {
-        // use axios client so it will include auth headers or cookies you configured
         const resp = await client.get(fullUrl, { responseType: "blob" });
         if (cancelled) return;
         const blob = resp.data as Blob;
@@ -208,13 +239,11 @@ const Account: React.FC = () => {
         setProfileBlobUrl(blobUrl);
       } catch (err) {
         console.error("Failed to fetch profile picture blob:", err);
-        // keep profileBlobUrl null on failure; Avatar will fallback to initials
         setProfileBlobUrl(null);
       }
     };
 
     fetchProfilePicture();
-
     return () => {
       cancelled = true;
       cleanup();
@@ -226,9 +255,7 @@ const Account: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     const cleanup = () => {
-      if (businessBlobUrl) {
-        URL.revokeObjectURL(businessBlobUrl);
-      }
+      if (businessBlobUrl) URL.revokeObjectURL(businessBlobUrl);
     };
 
     const fetchBusinessLogo = async () => {
@@ -252,7 +279,6 @@ const Account: React.FC = () => {
     };
 
     fetchBusinessLogo();
-
     return () => {
       cancelled = true;
       cleanup();
@@ -260,7 +286,7 @@ const Account: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [business.logoUrl, business.hasLogo]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_evt: React.SyntheticEvent | null, newValue: number) => {
     setTabValue(newValue);
   };
 
@@ -269,7 +295,6 @@ const Account: React.FC = () => {
     e.preventDefault();
     await client.put("/api/user-profile", aboutMe);
     alert("Profile updated");
-    // refresh profile to get new pictureUrl if backend set it
     client.get("/api/user-profile").then((res) => {
       const data = res.data?.data ?? res.data;
       if (data) setAboutMe((prev) => ({ ...prev, ...data }));
@@ -280,7 +305,6 @@ const Account: React.FC = () => {
     e.preventDefault();
     await client.put("/api/business-profile", business);
     alert("Business updated");
-    // refresh
     client.get("/api/business-profile").then((res) => {
       const data = res.data?.data ?? res.data;
       if (data) setBusiness((prev) => ({ ...prev, ...data }));
@@ -315,26 +339,33 @@ const Account: React.FC = () => {
     }
   };
 
-  // FIXED: Upload handlers with correct AxiosProgressEvent type
+  // Upload handlers with correct AxiosProgressEvent type
   const uploadFile = async (endpoint: string, file: File) => {
     const fd = new FormData();
     fd.append("file", file);
     setUploadProgress(0);
     try {
-      // FIXED: Use AxiosProgressEvent type parameter
       await client.post(endpoint, fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (progressEvent: AxiosProgressEvent) => { // FIXED: Correct type
+        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
           if (progressEvent.total) {
             setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
           }
         },
       });
-      // refresh profile/business after upload
+
+      // ✅ FIXED: Promise.all bracket/comma mismatch
       await Promise.all([
-        client.get("/api/user-profile").then((r) => setAboutMe((p) => ({ ...p, ...((r.data?.data ?? r.data) || {})}))).catch(()=>{}),
-        client.get("/api/business-profile").then((r) => setBusiness((p) => ({ ...p, ...((r.data?.data ?? r.data) || {}) }))).catch(()=>{})
+        client
+          .get("/api/user-profile")
+          .then((r) => setAboutMe((p) => ({ ...p, ...((r.data?.data ?? r.data) || {}) })))
+          .catch(() => {}),
+        client
+          .get("/api/business-profile")
+          .then((r) => setBusiness((p) => ({ ...p, ...((r.data?.data ?? r.data) || {}) })))
+          .catch(() => {}),
       ]);
+
       alert("Upload successful");
     } catch (err) {
       console.error(err);
@@ -372,20 +403,13 @@ const Account: React.FC = () => {
         Account
       </Typography>
 
-      <Tabs
+      {/* Pill-style tabs (Inventory look) */}
+      <PillTabs
         value={tabValue}
-        onChange={handleTabChange}
-        sx={{
-          mb: 3,
-          "& .MuiTab-root": { backgroundColor: "#ffd700", color: "#000", borderRadius: "4px", mr: 1 },
-          "& .Mui-selected": { backgroundColor: "#ffca28", color: "#000 !important" },
-        }}
-      >
-        <Tab label="ABOUT ME" />
-        <Tab label="MY BUSINESS" />
-        <Tab label="SUBSCRIPTIONS" />
-        <Tab label="SETTINGS" />
-      </Tabs>
+        onChange={(i) => handleTabChange(null, i)}
+        labels={["ABOUT ME", "MY BUSINESS", "SUBSCRIPTIONS", "SETTINGS"]}
+        sx={{ mb: 3 }}
+      />
 
       {tabValue === 0 && (
         <Paper sx={{ p: 3 }}>
@@ -395,19 +419,30 @@ const Account: React.FC = () => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={3}>
                 <Box sx={{ display: "flex", alignItems: "center", flexDirection: "column", gap: 1 }}>
-                  {/* FIXED: Safe access to user properties */}
                   <Avatar
-                    src={profileBlobUrl ?? (aboutMe.pictureUrl ? resolveAssetUrl(aboutMe.pictureUrl) : (aboutMe.hasPicture ? resolveAssetUrl(userPictureEndpoint) : ""))}
+                    src={
+                      profileBlobUrl ??
+                      (aboutMe.pictureUrl
+                        ? resolveAssetUrl(aboutMe.pictureUrl)
+                        : aboutMe.hasPicture
+                        ? resolveAssetUrl(userPictureEndpoint)
+                        : "")
+                    }
                     alt={aboutMe.title ?? "User"}
                     sx={{ width: 120, height: 120, bgcolor: "#e0e0e0" }}
                   >
-                    {/* FIXED: Use safe helper function */}
                     {!aboutMe.hasPicture && getUserInitial()}
                   </Avatar>
 
                   {aboutMe.hasPicture ? (
                     <Box sx={{ display: "flex", gap: 1 }}>
-                      <Link href={resolveAssetUrl(aboutMe.pictureUrl ?? userPictureEndpoint)} target="_blank" rel="noreferrer" download underline="none">
+                      <Link
+                        href={resolveAssetUrl(aboutMe.pictureUrl ?? userPictureEndpoint)}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        underline="none"
+                      >
                         <Button variant="contained" size="small">
                           Download
                         </Button>
@@ -425,7 +460,9 @@ const Account: React.FC = () => {
                       Upload / Replace Picture
                     </Button>
                   </label>
-                  {uploadProgress !== null && <LinearProgress variant="determinate" value={uploadProgress} sx={{ width: "100%", mt: 1 }} />}
+                  {uploadProgress !== null && (
+                    <LinearProgress variant="determinate" value={uploadProgress} sx={{ width: "100%", mt: 1 }} />
+                  )}
                 </Box>
               </Grid>
 
@@ -434,7 +471,11 @@ const Account: React.FC = () => {
                   <Grid item xs={12} sm={3}>
                     <FormControl fullWidth>
                       <InputLabel>Title</InputLabel>
-                      <Select value={aboutMe.title ?? ""} label="Title" onChange={(e) => setAboutMe({ ...aboutMe, title: e.target.value as string })}>
+                      <Select
+                        value={aboutMe.title ?? ""}
+                        label="Title"
+                        onChange={(e) => setAboutMe({ ...aboutMe, title: e.target.value as string })}
+                      >
                         <MenuItem value="">—</MenuItem>
                         <MenuItem value="Mr">Mr</MenuItem>
                         <MenuItem value="Ms">Ms</MenuItem>
@@ -446,7 +487,11 @@ const Account: React.FC = () => {
                   <Grid item xs={12} sm={3}>
                     <FormControl fullWidth>
                       <InputLabel>Gender</InputLabel>
-                      <Select value={aboutMe.gender ?? ""} label="Gender" onChange={(e) => setAboutMe({ ...aboutMe, gender: e.target.value as string })}>
+                      <Select
+                        value={aboutMe.gender ?? ""}
+                        label="Gender"
+                        onChange={(e) => setAboutMe({ ...aboutMe, gender: e.target.value as string })}
+                      >
                         <MenuItem value="">—</MenuItem>
                         <MenuItem value="Male">Male</MenuItem>
                         <MenuItem value="Female">Female</MenuItem>
@@ -469,7 +514,11 @@ const Account: React.FC = () => {
                   <Grid item xs={12} sm={3}>
                     <FormControl fullWidth>
                       <InputLabel>ID Type</InputLabel>
-                      <Select value={aboutMe.idType ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, idType: e.target.value as string })} label="ID Type">
+                      <Select
+                        value={aboutMe.idType ?? ""}
+                        onChange={(e) => setAboutMe({ ...aboutMe, idType: e.target.value as string })}
+                        label="ID Type"
+                      >
                         <MenuItem value="">—</MenuItem>
                         <MenuItem value="NATIONAL_ID">National ID</MenuItem>
                         <MenuItem value="PASSPORT">Passport</MenuItem>
@@ -479,31 +528,66 @@ const Account: React.FC = () => {
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <TextField label="ID Number" value={aboutMe.idNumber ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, idNumber: e.target.value })} fullWidth />
+                    <TextField
+                      label="ID Number"
+                      value={aboutMe.idNumber ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, idNumber: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <TextField label="Phone" value={aboutMe.phone ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, phone: e.target.value })} fullWidth />
+                    <TextField
+                      label="Phone"
+                      value={aboutMe.phone ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, phone: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
-                    <TextField label="Postal Address" value={aboutMe.postalAddress ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, postalAddress: e.target.value })} fullWidth />
+                    <TextField
+                      label="Postal Address"
+                      value={aboutMe.postalAddress ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, postalAddress: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
-                    <TextField label="Physical Address" value={aboutMe.physicalAddress ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, physicalAddress: e.target.value })} fullWidth />
+                    <TextField
+                      label="Physical Address"
+                      value={aboutMe.physicalAddress ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, physicalAddress: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12} sm={4}>
-                    <TextField label="City" value={aboutMe.city ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, city: e.target.value })} fullWidth />
+                    <TextField
+                      label="City"
+                      value={aboutMe.city ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, city: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12} sm={4}>
-                    <TextField label="Country" value={aboutMe.country ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, country: e.target.value })} fullWidth />
+                    <TextField
+                      label="Country"
+                      value={aboutMe.country ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, country: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12} sm={4}>
-                    <TextField label="Area / Postal Code" value={aboutMe.areaCode ?? ""} onChange={(e) => setAboutMe({ ...aboutMe, areaCode: e.target.value })} fullWidth />
+                    <TextField
+                      label="Area / Postal Code"
+                      value={aboutMe.areaCode ?? ""}
+                      onChange={(e) => setAboutMe({ ...aboutMe, areaCode: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
@@ -512,11 +596,21 @@ const Account: React.FC = () => {
                         ID document:{" "}
                         {aboutMe.hasIdDoc ? (
                           <>
-                            <Link href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)} target="_blank" rel="noreferrer" underline="none">
+                            <Link
+                              href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)}
+                              target="_blank"
+                              rel="noreferrer"
+                              underline="none"
+                            >
                               View
                             </Link>
                             {" • "}
-                            <Link href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)} target="_blank" rel="noreferrer" download>
+                            <Link
+                              href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
                               Download
                             </Link>
                           </>
@@ -568,19 +662,33 @@ const Account: React.FC = () => {
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6">My Business</Typography>
 
-
           <form onSubmit={saveBusiness}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={3}>
                 <Box sx={{ display: "flex", alignItems: "center", flexDirection: "column", gap: 1 }}>
-                  <Avatar src={businessBlobUrl ?? (business.logoUrl ? resolveAssetUrl(business.logoUrl) : (business.hasLogo ? resolveAssetUrl(businessLogoEndpoint) : ""))} sx={{ width: 120, height: 120, bgcolor: "#e0e0e0" }}>
-                    {/* FIXED: Use getUserInitial() helper for business too */}
+                  <Avatar
+                    src={
+                      businessBlobUrl ??
+                      (business.logoUrl
+                        ? resolveAssetUrl(business.logoUrl)
+                        : business.hasLogo
+                        ? resolveAssetUrl(businessLogoEndpoint)
+                        : "")
+                    }
+                    sx={{ width: 120, height: 120, bgcolor: "#e0e0e0" }}
+                  >
                     {!business.hasLogo && business.name ? business.name.charAt(0).toUpperCase() : "B"}
                   </Avatar>
 
                   {business.hasLogo ? (
                     <Box sx={{ display: "flex", gap: 1 }}>
-                      <Link href={resolveAssetUrl(business.logoUrl ?? businessLogoEndpoint)} target="_blank" rel="noreferrer" download underline="none">
+                      <Link
+                        href={resolveAssetUrl(business.logoUrl ?? businessLogoEndpoint)}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        underline="none"
+                      >
                         <Button variant="contained" size="small">
                           Download
                         </Button>
@@ -598,18 +706,30 @@ const Account: React.FC = () => {
                       Upload / Replace Logo
                     </Button>
                   </label>
-                  {uploadProgress !== null && <LinearProgress variant="determinate" value={uploadProgress} sx={{ width: "100%", mt: 1 }} />}
+                  {uploadProgress !== null && (
+                    <LinearProgress variant="determinate" value={uploadProgress} sx={{ width: "100%", mt: 1 }} />
+                  )}
                 </Box>
               </Grid>
 
               <Grid item xs={12} sm={9}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <TextField label="Business Name" value={business.name ?? ""} onChange={(e) => setBusiness({ ...business, name: e.target.value })} fullWidth />
+                    <TextField
+                      label="Business Name"
+                      value={business.name ?? ""}
+                      onChange={(e) => setBusiness({ ...business, name: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
-                    <TextField label="Location / Address" value={business.location ?? ""} onChange={(e) => setBusiness({ ...business, location: e.target.value })} fullWidth />
+                    <TextField
+                      label="Location / Address"
+                      value={business.location ?? ""}
+                      onChange={(e) => setBusiness({ ...business, location: e.target.value })}
+                      fullWidth
+                    />
                   </Grid>
 
                   <Grid item xs={12} sx={{ display: "flex", gap: 2 }}>
@@ -646,15 +766,27 @@ const Account: React.FC = () => {
         <Grid container spacing={3}>
           {[
             { name: "FREE TRIAL", price: "7 days free", features: ["Platinum features access"], iconColor: "#4caf50" },
-            { name: "BRONZE", price: "P99/month", features: ["1 user", "5 QR codes", "Loan up to P1,000", "Inventory, sales & reports"], iconColor: "#9e9e9e" },
-            { name: "SILVER", price: "P149/month", features: ["2 users", "15 QR codes", "Loan up to P5,000", "Inventory, sales & reports"], iconColor: "#9e9e9e" },
+            {
+              name: "BRONZE",
+              price: "P99/month",
+              features: ["1 user", "5 QR codes", "Loan up to P1,000", "Inventory, sales & reports"],
+              iconColor: "#9e9e9e",
+            },
+            {
+              name: "SILVER",
+              price: "P149/month",
+              features: ["2 users", "15 QR codes", "Loan up to P5,000", "Inventory, sales & reports"],
+              iconColor: "#9e9e9e",
+            },
             { name: "GOLD", price: "", features: [], iconColor: "#9e9e9e" },
             { name: "PLATINUM", price: "", features: [], iconColor: "#9e9e9e" },
           ].map((plan) => (
             <Grid item xs={12} sm={6} md={4} key={plan.name}>
               <Card sx={{ textAlign: "center" }}>
                 <CardContent>
-                  <Box sx={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: plan.iconColor, mx: "auto", mb: 1 }} />
+                  <Box
+                    sx={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: plan.iconColor, mx: "auto", mb: 1 }}
+                  />
                   <Typography variant="h6">{plan.name}</Typography>
                   <Typography>{plan.price}</Typography>
                   {plan.features.map((f) => (
@@ -682,15 +814,37 @@ const Account: React.FC = () => {
           <form onSubmit={saveSettings}>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Select Currency</InputLabel>
-              <Select value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })}>
+              <Select
+                value={settings.currency}
+                onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+                label="Select Currency"
+              >
                 <MenuItem value="PHP">PHP</MenuItem>
                 <MenuItem value="USD">USD</MenuItem>
               </Select>
             </FormControl>
-            <TextField label="Preferred Abbreviation" value={settings.abbreviation} onChange={(e) => setSettings({ ...settings, abbreviation: e.target.value })} fullWidth sx={{ mb: 2 }} />
-            <TextField label="VAT" value={settings.vat} onChange={(e) => setSettings({ ...settings, vat: e.target.value })} fullWidth sx={{ mb: 2 }} />
+            <TextField
+              label="Preferred Abbreviation"
+              value={settings.abbreviation}
+              onChange={(e) => setSettings({ ...settings, abbreviation: e.target.value })}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="VAT"
+              value={settings.vat}
+              onChange={(e) => setSettings({ ...settings, vat: e.target.value })}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
             <FormControlLabel
-              control={<Switch checked={settings.applyVat} onChange={(e) => setSettings({ ...settings, applyVat: e.target.checked })} color="primary" />}
+              control={
+                <Switch
+                  checked={settings.applyVat}
+                  onChange={(e) => setSettings({ ...settings, applyVat: e.target.checked })}
+                  color="primary"
+                />
+              }
               label="Apply VAT"
             />
             <Button type="submit" variant="contained" sx={{ backgroundColor: "#4caf50", mt: 2 }}>
@@ -704,9 +858,30 @@ const Account: React.FC = () => {
             Security
           </Typography>
           <form onSubmit={changePassword}>
-            <TextField label="Old Password" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} fullWidth sx={{ mb: 2 }} />
-            <TextField label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth sx={{ mb: 2 }} />
-            <TextField label="Confirm Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} fullWidth sx={{ mb: 2 }} />
+            <TextField
+              label="Old Password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="New Password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
             <Button type="submit" variant="contained" sx={{ backgroundColor: "#4caf50" }}>
               Update
             </Button>

@@ -44,6 +44,9 @@ const CashTill: React.FC = () => {
   const terminal = terminalId ?? "TERMINAL_001";
   const userId = currentUser?.id ?? 1;
 
+  // Safe string coercion helper to use .replace on string|number without changing behavior
+  const asStr = (v: string | number | null | undefined) => (v == null ? "" : String(v));
+
   const [cart, setCart] = useState<LineItem[]>([]);
   const total = useMemo(() => cart.reduce((s, it) => s + it.price * it.qty, 0), [cart]);
 
@@ -68,7 +71,7 @@ const CashTill: React.FC = () => {
   // animate map for UI feedback after checkout (optional)
   const [animateMap, setAnimateMap] = useState<Record<string, number>>({});
 
-  const numericTerminal = terminal ? Number(terminal.replace(/\D/g, "")) : null;
+  const numericTerminal = terminal ? Number(asStr(terminal).replace(/\D/g, "")) : null;
 
   const normalizeProducts = (payload: any[]): ProductItem[] =>
     (payload ?? []).map((p: any) => ({
@@ -561,48 +564,9 @@ const CashTill: React.FC = () => {
 
       {/* RIGHT: Products */}
       <Box className="col-span-8 space-y-3">
-        <Paper className="p-3 flex items-center gap-3 justify-between">
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip label={terminal.replace("_", " ")} variant="outlined" />
-            {refreshing && <CircularProgress size={20} />}
-            {session?.status === "OPEN" ? (
-              <>
-                <Chip color="success" label="TILL: OPEN" />
-                <Button
-                  size="small"
-                  color="error"
-                  variant="contained"
-                  startIcon={<LockIcon />}
-                  onClick={() => {
-                    setClosingActual("");
-                    setOpenCloseDlg(true);
-                  }}
-                  disabled={refreshing}
-                >
-                  Close Till
-                </Button>
-              </>
-            ) : (
-              <>
-                <Chip color="warning" label="TILL: CLOSED" />
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  startIcon={<LockOpenIcon />}
-                  onClick={() => {
-                    setOpeningFloat("0");
-                    setOpenOpenDlg(true);
-                  }}
-                  disabled={refreshing}
-                >
-                  Open Till
-                </Button>
-              </>
-            )}
-          </Stack>
-
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1, px: 4 }}>
+        {/* Search and Scan Bar */}
+        <Paper className="p-3 flex items-center gap-3">
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
             <TextField
               placeholder="SEARCH"
               value={search}
@@ -621,10 +585,10 @@ const CashTill: React.FC = () => {
               onClick={handleScan}
               variant="contained"
               color="warning"
-              disabled={scanInProgress || refreshing || session?.status !== "OPEN"}
+              disabled={true}
               sx={{ minWidth: 120 }}
             >
-              {scanInProgress ? "SCANNING..." : "SCAN"}
+              SCAN
             </Button>
           </Stack>
         </Paper>
