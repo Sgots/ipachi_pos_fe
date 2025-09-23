@@ -10,10 +10,29 @@ import PersonOutline from "@mui/icons-material/PersonOutline";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import { useAuth } from "../auth/AuthContext";
 
+// ⬇️ bring in api + persist helpers
+import { api, setBusinessId, setTerminalId } from "../api/client";
+
 const brand = {
   bgLeft: "#cfe8d8",
   dark: "#0c5b4a",
   accent: "#d5a626",
+};
+
+type TerminalDTO = { id: number; name: string; code: string; active: boolean };
+
+// FE will accept either envelope.data or raw object
+type BusinessEnvelope = {
+  code?: string;
+  message?: string;
+  data?: {
+    id?: number | string;
+    businessId?: number | string;
+    name?: string;
+    location?: string;
+    logoUrl?: string | null;
+    userId?: number;
+  };
 };
 
 const LoginPage: React.FC = () => {
@@ -25,14 +44,65 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getStoredUserId = (): string | null => {
+    // prefer the header key set by AuthContext.login; fallback to any legacy key you used
+    const a = localStorage.getItem("x.user.id");
+    if (a && a !== "null" && a !== "undefined" && a.trim() !== "") return a;
+    const b = localStorage.getItem("activeUserId");
+    if (b && b !== "null" && b !== "undefined" && b.trim() !== "") return b;
+    return null;
+  };
+
+  const fetchAndPersistTerminalId = async () => {
+    try {
+      const { data: terminals } = await api.get<TerminalDTO[]>("/api/terminals");
+      if (Array.isArray(terminals) && terminals.length > 0) {
+        setTerminalId(terminals[0].id);
+      } else {
+        const { data: def } = await api.post<TerminalDTO>("/api/terminals/default");
+        setTerminalId(def.id);
+      }
+    } catch {
+      // non-blocking
+    }
+  };
+
+  const fetchAndPersistBusinessId = async () => {
+    try {
+      const uid = getStoredUserId();
+      if (!uid) return; // AuthContext.login should have set it; if not, skip silently
+
+      // Call the provided endpoint
+      const { data: env } = await api.get<BusinessEnvelope>(`/api/users/${uid}/business-profile`);
+
+      // BE returns an envelope with .data; also falls back to env itself if needed
+      const d = (env && env.data) ? env.data : (env as any);
+      const bid = (d?.businessId ?? d?.id);
+      if (bid != null && `${bid}`.trim() !== "") {
+        setBusinessId(String(bid)); // <-- persist so interceptor sends X-Business-Id
+      }
+    } catch {
+      // non-blocking; some screens might not need business immediately
+    }
+  };
+
+  // After login, persist Terminal ID and Business ID so interceptors add headers
+  const hydrateContext = async () => {
+    await Promise.all([
+      fetchAndPersistTerminalId(),
+      fetchAndPersistBusinessId(),
+    ]);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       await login(username, password);
+      await hydrateContext(); // ⬅️ persist X-Terminal-Id and X-Business-Id using your BE endpoint
       nav("/cash-till");
-    } catch (err) {
+    } catch {
       setError("Invalid username or password");
     } finally {
       setLoading(false);
@@ -103,7 +173,7 @@ const LoginPage: React.FC = () => {
             </Typography>
 
             <Box component="form" onSubmit={onSubmit}>
-              {/* Username (placeholder + icon, rounded, soft bg) */}
+              {/* Username */}
               <TextField
                 placeholder="Enter your username"
                 fullWidth
@@ -122,7 +192,7 @@ const LoginPage: React.FC = () => {
                 required
               />
 
-              {/* Password (placeholder + lock icon + eye toggle) */}
+              {/* Password */}
               <TextField
                 placeholder="Enter your password"
                 fullWidth

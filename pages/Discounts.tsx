@@ -1,205 +1,242 @@
+// src/pages/DiscountPromo.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box, Paper, Typography, TextField, Button, IconButton, Tooltip, Tabs, Tab, Chip
+  Box, Paper, Typography, Stack, TextField, InputAdornment,
+  Table, TableHead, TableRow, TableCell, TableBody,
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+  Button, Switch
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
+import EditIcon from "@mui/icons-material/Edit";
 import client from "../api/client";
-import { API } from "../api/endpoints";
-import type { PromoCampaign } from "../types/promo";
-import PromoDialog from "../components/PromoDialog";
-import PromoCard from "../components/PromoCard";
-import ConfirmDialog from "../components/ConfirmDialog";
+import { useAuth } from "../auth/AuthContext"; // <<< permissions
 
-const statusFilters = ["all","active","scheduled","expired","draft"] as const;
+type PromoItem = {
+  id: number;
+  sku: string;
+  barcode?: string;
+  name: string;
+  quantity?: number;
+  measurement?: string;
+  lifetimeDays?: number | null;
+  inStockForDays?: number | null;
+  buyPrice?: number;
+  sellPrice?: number;
+  onSpecial?: boolean;
+};
 
-const Discounts: React.FC = () => {
-  const [rows, setRows] = useState<PromoCampaign[]>([]);
-  const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<(typeof statusFilters)[number]>("all");
+type ApiResponse<T> = { code: string; message: string; data: T };
+
+const currency = (n?: number) =>
+  typeof n === "number"
+    ? new Intl.NumberFormat(undefined, { style: "currency", currency: "BWP" }).format(n)
+    : "-";
+
+const DiscountPromo: React.FC = () => {
+  const { can } = useAuth();
+  const CAN_VIEW = can("DISCOUNTS", "VIEW");
+  const CAN_EDIT = can("DISCOUNTS", "EDIT");
+
+  const [rows, setRows] = useState<PromoItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
-  const [openForm, setOpenForm] = useState<{ mode: "add" | "edit" | null; item?: PromoCampaign }>({ mode: null });
-  const [confirm, setConfirm] = useState<{ open: boolean; item?: PromoCampaign }>({ open: false });
+  // ensure header
+  useEffect(() => {
+    const biz = localStorage.getItem("x.business.id");
+    if (biz) (client as any).defaults.headers.common["X-Business-Id"] = biz;
+    else delete (client as any).defaults.headers.common["X-Business-Id"];
+  }, []);
 
-  const fetchRows = async () => {
-    setLoading(true);
+  const fetchData = async () => {
+    if (!CAN_VIEW) return; // guard
+    setLoading(true); setErr(null);
     try {
-      const { data } = await client.get<PromoCampaign[]>(API.promos.base);
-      setRows(data);
-    } catch {
-      // mock when backend not present
-      const now = new Date().toISOString();
-      setRows([
-        {
-          id: 1,
-          name: "VIP Winter 10%",
-          code: "WINTER10",
-          type: "percentage",
-          value: 10,
-          startAt: now,
-          endAt: new Date(Date.now()+7*86400000).toISOString(),
-          channels: ["in-store","online"],
-          audienceTags: ["VIP","Loyalty"],
-          usageLimit: 1000,
-          stackable: false,
-          status: "active",
-          banner: { headline: "VIP save 10%", subcopy: "Members only", bg: "#0EA5E9", fg: "#FFFFFF", cta: "Shop" },
-          metrics: { impressions: 1400, redemptions: 210, lift: 8, revenue: 5200 }
-        },
-        {
-          id: 2,
-          name: "Combo BOGO",
-          type: "bogo",
-          buyQty: 2, getQty: 1,
-          startAt: now,
-          endAt: new Date(Date.now()+3*86400000).toISOString(),
-          channels: ["in-store"],
-          audienceTags: ["New"],
-          stackable: true,
-          status: "scheduled",
-          banner: { headline: "Buy 2 Get 1", subcopy: "On select items", bg: "#111827", fg: "#FFFFFF", cta: "Add to cart" },
-          abTest: { enabled: true, split: 50, variantB: { headline: "3 for 2", bg: "#0F766E", fg: "#FFFFFF", cta: "Grab deal" } },
-          metrics: { impressions: 0, redemptions: 0, lift: 0, revenue: 0 }
-        }
-      ]);
+      const { data } = await client.get<ApiResponse<PromoItem[]>>(
+        "/api/promotions/expired-shelflife",
+        { params: { q } }
+      );
+      const arr = (data?.data ?? []).map((r: any) => ({
+        ...r,
+        quantity: r.quantity != null ? Number(r.quantity) : undefined,
+        lifetimeDays: r.lifetimeDays != null ? Number(r.lifetimeDays) : undefined,
+        inStockForDays: r.inStockForDays != null ? Number(r.inStockForDays) : undefined,
+        buyPrice: r.buyPrice != null ? Number(r.buyPrice) : undefined,
+        sellPrice: r.sellPrice != null ? Number(r.sellPrice) : undefined,
+        onSpecial: !!r.onSpecial,
+      })) as PromoItem[];
+      setRows(arr);
+    } catch (e: any) {
+      setErr(e?.response?.data?.message || e?.message || "Failed to load");
+      setRows([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchRows(); }, []);
+  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [q, CAN_VIEW]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter(r => {
-      const matchesQ = !q || [r.name, r.code, r.banner?.headline, ...(r.audienceTags||[])].some(s => (s || "").toLowerCase().includes(q));
-      const matchesTab = tab === "all" ? true : r.status === tab;
-      return matchesQ && matchesTab;
-    });
-  }, [rows, query, tab]);
+  const displayRows = useMemo(() => rows, [rows]);
 
-  const handleSave = async (payload: Partial<PromoCampaign>, mode: "add" | "edit") => {
-    if (mode === "add") {
-      await client.post(API.promos.base, payload); // replace with real POST
-    } else if (mode === "edit" && payload.id != null) {
-      await client.post(API.promos.base, payload); // replace with PUT /api/promos/:id
+  // ---------- Edit dialog ----------
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<PromoItem | null>(null);
+  const [newPrice, setNewPrice] = useState<string>("");
+  const [flagSpecial, setFlagSpecial] = useState<boolean>(false);
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (row: PromoItem) => {
+    if (!CAN_EDIT) return;
+    setEditing(row);
+    setNewPrice("");
+    setFlagSpecial(!!row.onSpecial);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !CAN_EDIT) return;
+    setSaving(true);
+    try {
+      const payload: any = {};
+      if (newPrice.trim() !== "") payload.newSellPrice = Number(newPrice);
+      payload.onSpecial = flagSpecial;
+      const { data } = await client.put<ApiResponse<PromoItem>>(`/api/promotions/${editing.id}`, payload);
+      const updated = data?.data;
+      setRows(prev => prev.map(r => (r.id === editing.id ? { ...r, ...updated } : r)));
+      setEditOpen(false);
+    } catch (e) {
+      // optional: toast or error handling
+    } finally {
+      setSaving(false);
     }
-    setOpenForm({ mode: null });
-    await fetchRows();
   };
 
-  const handleDelete = async (id?: number) => {
-    if (!id) return;
-    // replace with DELETE /api/promos/:id
-    setRows(prev => prev.filter(p => p.id !== id));
-    setConfirm({ open: false });
-  };
-
-  const toggleActive = async (item: PromoCampaign) => {
-    const next: PromoCampaign = { ...item, status: item.status === "active" ? "scheduled" : "active" };
-    // replace with PUT call
-    setRows(prev => prev.map(p => p.id === item.id ? next : p));
-  };
+  if (!CAN_VIEW) {
+    return (
+      <Box>
+        <Typography variant="h5" sx={{ mb: 2 }}>Discount & Promo</Typography>
+        <Paper sx={{ p: 2 }}>
+          <Typography color="text.secondary">
+            You don’t have permission to view Discounts.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box>
-      <Typography variant="h5" className="mb-3">Discount & Promo</Typography>
+      <Typography variant="h5" sx={{ mb: 2 }}>Discount & Promo</Typography>
 
-      {/* Marketing toolbar */}
-      <Paper className="p-3 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[260px]">
-            <TextField
-              fullWidth
-              placeholder="Search campaigns, codes, tags…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              InputProps={{ startAdornment: <SearchIcon className="mr-2 opacity-60" /> }}
-            />
-          </div>
-
-          <Tabs
-            value={statusFilters.indexOf(tab)}
-            onChange={(_, idx) => setTab(statusFilters[idx])}
-            variant="scrollable"
-            allowScrollButtonsMobile
-          >
-            {statusFilters.map((s) => <Tab key={s} label={s.toUpperCase()} />)}
-          </Tabs>
-
-          <Tooltip title="Refresh">
-            <span><IconButton onClick={fetchRows} disabled={loading}><RefreshIcon /></IconButton></span>
-          </Tooltip>
-
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenForm({ mode: "add" })}>
-            New Campaign
-          </Button>
-        </div>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            placeholder="Search product"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            size="small"
+            sx={{ minWidth: 300 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button variant="outlined" onClick={fetchData}>Refresh</Button>
+        </Stack>
       </Paper>
 
-      {/* KPI snapshot */}
-      <div className="grid md:grid-cols-4 sm:grid-cols-2 grid-cols-1 gap-4 mb-4">
-        <Paper className="p-4 rounded-xl">
-          <div className="text-xs text-gray-500">Active</div>
-          <div className="text-2xl font-semibold">{rows.filter(r => r.status === "active").length}</div>
-        </Paper>
-        <Paper className="p-4 rounded-xl">
-          <div className="text-xs text-gray-500">Scheduled</div>
-          <div className="text-2xl font-semibold">{rows.filter(r => r.status === "scheduled").length}</div>
-        </Paper>
-        <Paper className="p-4 rounded-xl">
-          <div className="text-xs text-gray-500">Total Redemptions</div>
-          <div className="text-2xl font-semibold">
-            {rows.reduce((a, b) => a + (b.metrics?.redemptions ?? 0), 0)}
-          </div>
-        </Paper>
-        <Paper className="p-4 rounded-xl">
-          <div className="text-xs text-gray-500">Attributed Revenue</div>
-          <div className="text-2xl font-semibold">
-            P{rows.reduce((a, b) => a + (b.metrics?.revenue ?? 0), 0).toFixed(2)}
-          </div>
-        </Paper>
-      </div>
+      <Paper sx={{ p: 0, overflowX: "auto" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>SKU</TableCell>
+              <TableCell>Barcode</TableCell>
+              <TableCell>Product name</TableCell>
+              <TableCell>Quantity</TableCell>
+              <TableCell>Measurement</TableCell>
+              <TableCell>Lifetime (days)</TableCell>
+              <TableCell>In stock for (days)</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading && (
+              <TableRow><TableCell colSpan={8} sx={{ p: 2 }}>Loading…</TableCell></TableRow>
+            )}
+            {!loading && err && (
+              <TableRow><TableCell colSpan={8} sx={{ p: 2, color: "error.main" }}>{err}</TableCell></TableRow>
+            )}
+            {!loading && !err && displayRows.length === 0 && (
+              <TableRow><TableCell colSpan={8} sx={{ p: 2, color: "text.secondary" }}>No items found.</TableCell></TableRow>
+            )}
+            {!loading && !err && displayRows.map(r => (
+              <TableRow key={r.id} hover>
+                <TableCell>{r.sku}</TableCell>
+                <TableCell>{r.barcode || "-"}</TableCell>
+                <TableCell>{r.name}</TableCell>
+                <TableCell>{r.quantity ?? 0}</TableCell>
+                <TableCell>{r.measurement || "unit"}</TableCell>
+                <TableCell>{r.lifetimeDays ?? "-"}</TableCell>
+                <TableCell sx={{ color: "error.main", fontWeight: 600 }}>
+                  {r.inStockForDays ?? "-"}
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton
+                    onClick={() => openEdit(r)}
+                    disabled={!CAN_EDIT}
+                    title={CAN_EDIT ? "Edit" : "No permission"}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
 
-      {/* Grid */}
-      <div className="grid 2xl:grid-cols-3 lg:grid-cols-2 grid-cols-1 gap-4">
-        {filtered.map((c) => (
-          <PromoCard
-            key={c.id}
-            data={c}
-            onEdit={() => setOpenForm({ mode: "edit", item: c })}
-            onDelete={() => setConfirm({ open: true, item: c })}
-            onToggleActive={() => toggleActive(c)}
+      {/* Edit Sell Price Dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Edit Sell Price</DialogTitle>
+        <DialogContent dividers>
+          {editing && (
+            <Stack spacing={1} sx={{ fontSize: 14, mb: 2 }}>
+              <div>SKU : <b>{editing.sku}</b></div>
+              <div>Barcode : <b>{editing.barcode || "-"}</b></div>
+              <div>Product : <b>{editing.name}</b></div>
+              <div>Buy Price : <b>{currency(editing.buyPrice)}</b></div>
+              <div>Sell Price : <b>{currency(editing.sellPrice)}</b></div>
+            </Stack>
+          )}
+
+          <TextField
+            fullWidth
+            placeholder="new sell price"
+            value={newPrice}
+            onChange={(e) => setNewPrice(e.target.value)}
+            inputProps={{ inputMode: "decimal", pattern: "[0-9.]*" }}
+            sx={{ mb: 2 }}
+            disabled={!CAN_EDIT}
           />
-        ))}
-        {!filtered.length && (
-          <Paper className="p-6 text-center text-gray-500">{loading ? "Loading…" : "No campaigns match your filters."}</Paper>
-        )}
-      </div>
 
-      {/* Dialogs */}
-  <PromoDialog
-    open={!!openForm.mode}
-    mode={openForm.mode ?? "add"}
-    initial={openForm.item}
-    onClose={() => setOpenForm({ mode: null })}
-    onSave={(payload) => handleSave(payload as any, openForm.mode ?? "add")}
-  />
-
-
-      <ConfirmDialog
-        open={confirm.open}
-        title="Delete campaign?"
-        message={`This will remove “${confirm.item?.name}”. Update your backend to persist with DELETE.`}
-        confirmText="Delete"
-        confirmColor="error"
-        onCancel={() => setConfirm({ open: false })}
-        onConfirm={() => handleDelete(confirm.item?.id)}
-      />
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Switch checked={flagSpecial} onChange={(_, v) => setFlagSpecial(v)} disabled={!CAN_EDIT} />
+            <Typography>Label “On Special”</Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEdit} disabled={saving || !CAN_EDIT}>
+            Update
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default Discounts;
+export default DiscountPromo;

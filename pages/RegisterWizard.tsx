@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import { setAuthToken } from "../api/client";
+import { setAuthToken, setBusinessId, setTerminalId } from "../api/client";
 
 import { endpoints, AuthResponse, RegisterRequest, NewUserSetupRequest } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
@@ -40,6 +40,9 @@ type Step2 = {
 
 type MeResponse = { id?: number; userId?: number; username?: string; email?: string };
 type TerminalDTO = { id: number; name: string; code: string; active: boolean; createdAt?: string; updatedAt?: string; location?: string | null };
+
+// very loose shape to collect a business id regardless of naming
+type BusinessDTO = { id?: number | string; businessId?: number | string };
 
 const strength = (pwd: string) => {
   let score = 0;
@@ -92,27 +95,30 @@ const RegisterWizard: React.FC = () => {
     };
 
   async function bootstrapContextAfterLogin() {
-    // 1) get user id from /auth/me (or similar) and store activeUserId
+    // 1) get user id from /auth/me (or similar)
     try {
       const { data: me } = await api.get<MeResponse>(endpoints.auth.me);
       const uid = (me?.id ?? me?.userId);
-      if (uid != null) localStorage.setItem("activeUserId", String(uid));
+      if (uid != null) {
+        localStorage.setItem("activeUserId", String(uid));
+        // also store for headers via helper (kept in your Auth flow elsewhere)
+        // setUserId(uid)  // usually done in AuthContext.login already
+      }
     } catch {
-      // If /auth/me is unavailable, leave activeUserId unset; backend may infer from token if supported
+      // ignore
     }
 
-    // 2) ensure default terminal exists; then store activeTerminalId
+    // 2) ensure default terminal exists; then persist for headers
     try {
       let { data: terms } = await api.get<TerminalDTO[]>("/api/terminals");
       if (!Array.isArray(terms) || terms.length === 0) {
-        // idempotent create on server
         const { data: def } = await api.post<TerminalDTO>("/api/terminals/default");
-        localStorage.setItem("activeTerminalId", String(def.id));
+        setTerminalId(def.id); // <-- persist to x.terminal.id so interceptor sends X-Terminal-Id
       } else {
-        localStorage.setItem("activeTerminalId", String(terms[0].id));
+        setTerminalId(terms[0].id); // <-- persist first terminal
       }
     } catch {
-      // swallow; user can still proceed, server may fallback to default terminal creation via listener
+      // ignore; backend may infer terminal some other way
     }
   }
 
@@ -129,7 +135,7 @@ const RegisterWizard: React.FC = () => {
       // Immediately sign in so we can call the protected setup endpoint
       await login(username, s1.password);
 
-      // Bootstrap: set activeUserId & activeTerminalId (default)
+      // Bootstrap: set activeUserId & persist Terminal ID for headers
       await bootstrapContextAfterLogin();
 
       setActive(1);
@@ -140,7 +146,38 @@ const RegisterWizard: React.FC = () => {
     }
   };
 
-  // Step 2 -> multipart (JSON + files)
+  // Try to persist Business ID from response or by fetching the first available business
+  async function persistBusinessIdFromServer(hint?: unknown) {
+    // 1) If the setup response had a business id in common shapes, use it
+    try {
+      const h = (hint ?? {}) as any;
+      const possible = h?.businessId ?? h?.businessID ?? h?.bizId ?? h?.business?.id ?? h?.id;
+      if (possible != null && `${possible}`.trim() !== "") {
+        setBusinessId(String(possible));
+        return;
+      }
+    } catch { /* ignore */ }
+
+    // 2) Fallback endpoints: try a couple of common ones; ignore errors quietly
+    const candidates = ["/api/businesses/mine", "/api/businesses", "/api/business/me", "/api/business/current"];
+    for (const path of candidates) {
+      try {
+        const { data } = await api.get<any>(path);
+        // support array or single object
+        const first: BusinessDTO | undefined = Array.isArray(data) ? data[0] : data;
+        const bid = first?.businessId ?? first?.id;
+        if (bid != null && `${bid}`.trim() !== "") {
+          setBusinessId(String(bid)); // <-- persist to x.business.id so interceptor sends X-Business-Id
+          return;
+        }
+      } catch {
+        // continue to next
+      }
+    }
+    // If none worked, leave it unset; backend may not require it for your next route.
+  }
+
+  // Step 2 -> multipart (JSON + files) + persist Business ID
   const submit = async () => {
     setErrS2(null); setSavingS2(true);
     try {
@@ -159,7 +196,13 @@ const RegisterWizard: React.FC = () => {
       if (s2.idDoc.file)  form.append("idDoc", s2.idDoc.file);
       if (s2.bizLogo.file) form.append("bizLogo", s2.bizLogo.file);
 
-      await api.post(endpoints.user.setup, form);
+      // Post setup
+      const { data: setupResp } = await api.post(endpoints.user.setup, form);
+
+      // Persist BusinessId from response or via fallbacks
+      await persistBusinessIdFromServer(setupResp);
+
+      // Done — go to your next screen
       nav("/customers");
     } catch (e: any) {
       setErrS2(e?.response?.data?.message || "Failed to complete setup.");

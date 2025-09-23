@@ -1,5 +1,5 @@
-// src/pages/Account.tsx - Pill-style tabs to match Inventory (fixed Promise.all syntax)
-import React, { useState, useEffect } from "react";
+// src/pages/Account.tsx - Pill-style tabs to match Inventory (ADMIN-only access)
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Paper,
@@ -64,6 +64,14 @@ interface ExtendedUser {
   token?: string;
 }
 
+type SettingsDTO = {
+  currency: string;
+  abbreviation: string;
+  enableVat: boolean;
+  pricesIncludeVat: boolean;
+  vatRate: number; // percent, e.g. 14.00
+};
+
 /** Local pill tabs component (matches Inventory look & feel) */
 const PillTabs: React.FC<{
   value: number;
@@ -105,8 +113,56 @@ const PillTabs: React.FC<{
 };
 
 const Account: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, currentUser, terminalId } = useAuth();
   const [tabValue, setTabValue] = useState(0);
+
+  // ===== Frontend access control: ONLY ADMIN/ROLE_ADMIN allowed =====
+  const roles = (currentUser?.roles ?? []).map((r) => String(r).toUpperCase());
+  const roleStr = (currentUser as any)?.role ? String((currentUser as any).role).toUpperCase() : null;
+  const isAdmin =
+    roles.includes("ADMIN") ||
+    roles.includes("ROLE_ADMIN") ||
+    roleStr === "ADMIN" ||
+    roleStr === "ROLE_ADMIN";
+
+  // Ensure all requests carry X-User-Id, X-Terminal-Id, X-Business-Id
+  const bootHeaders = useCallback(async () => {
+    if (!isAdmin) return; // block headers setup for non-admins (avoid network)
+    const uid = currentUser?.id;
+    const tid = terminalId;
+    if (uid != null) client.defaults.headers.common["X-User-Id"] = String(uid);
+    else delete client.defaults.headers.common["X-User-Id"];
+
+    if (tid != null && String(tid).trim() !== "") {
+      client.defaults.headers.common["X-Terminal-Id"] = String(tid);
+    } else {
+      delete client.defaults.headers.common["X-Terminal-Id"];
+    }
+
+    let bid = (typeof window !== "undefined" && window.localStorage.getItem("x.business.id")) || "";
+    if (!bid || bid === "null" || bid === "undefined") {
+      try {
+        const { data } = await client.get("/api/business-profile");
+        const d = data?.data ?? data;
+        const id = d?.id ?? d?.businessId ?? d?.business?.id ?? null;
+        if (id != null) {
+          bid = String(id);
+          window.localStorage.setItem("x.business.id", bid);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (bid && bid !== "null" && bid !== "undefined") {
+      client.defaults.headers.common["X-Business-Id"] = bid;
+    } else {
+      delete client.defaults.headers.common["X-Business-Id"];
+    }
+  }, [currentUser?.id, terminalId, isAdmin]);
+
+  useEffect(() => {
+    void bootHeaders();
+  }, [bootHeaders]);
 
   // Profile & business state
   const [aboutMe, setAboutMe] = useState<UserProfileDTO>({
@@ -127,18 +183,20 @@ const Account: React.FC = () => {
 
   const [business, setBusiness] = useState<BusinessProfileDTO>({
     id: 1,
-    name: "Aminaami",
-    location: "Aminaami",
+    name: "",
+    location: "",
     hasLogo: true,
   });
 
-  // Settings / security
-  const [settings, setSettings] = useState({
+  // ===== Settings (aligned to backend: enableVat, pricesIncludeVat, vatRate) =====
+  const [settings, setSettings] = useState<SettingsDTO>({
     currency: "PHP",
     abbreviation: "P",
-    vat: "12",
-    applyVat: false,
+    enableVat: false,
+    pricesIncludeVat: false,
+    vatRate: 0,
   });
+
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -170,8 +228,9 @@ const Account: React.FC = () => {
     return displayName.charAt(0).toUpperCase() || null;
   };
 
-  // Fetch profile & business DTOs on mount
+  // Fetch profile, business, and settings on mount (ADMIN only)
   useEffect(() => {
+    if (!isAdmin) return;
     client
       .get("/api/user-profile")
       .then((res) => {
@@ -203,6 +262,12 @@ const Account: React.FC = () => {
             createdAt: data.createdAt ?? prev.createdAt,
             updatedAt: data.updatedAt ?? prev.updatedAt,
           }));
+          // ⬇️ Persist and apply business header immediately
+          const bid = data?.id ?? data?.businessId ?? data?.business?.id;
+          if (bid != null) {
+            client.defaults.headers.common["X-Business-Id"] = String(bid);
+            window.localStorage.setItem("x.business.id", String(bid));
+          }
         }
       })
       .catch(() => {});
@@ -211,13 +276,22 @@ const Account: React.FC = () => {
       .get("/api/settings")
       .then((res) => {
         const data = res.data?.data ?? res.data;
-        if (data) setSettings((prev) => ({ ...prev, ...data }));
+        if (data) {
+          setSettings((prev) => ({
+            currency: data.currency ?? prev.currency,
+            abbreviation: data.abbreviation ?? prev.abbreviation,
+            enableVat: !!data.enableVat,
+            pricesIncludeVat: !!data.pricesIncludeVat,
+            vatRate: Number(data.vatRate ?? prev.vatRate) || 0,
+          }));
+        }
       })
       .catch(() => {});
-  }, []);
+  }, [isAdmin]);
 
-  // Fetch authenticated profile picture as blob whenever pictureUrl or hasPicture changes
+  // Fetch authenticated profile picture as blob whenever pictureUrl or hasPicture changes (ADMIN only)
   useEffect(() => {
+    if (!isAdmin) return;
     let cancelled = false;
     const cleanup = () => {
       if (profileBlobUrl) URL.revokeObjectURL(profileBlobUrl);
@@ -249,10 +323,11 @@ const Account: React.FC = () => {
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aboutMe.pictureUrl, aboutMe.hasPicture]);
+  }, [aboutMe.pictureUrl, aboutMe.hasPicture, isAdmin]);
 
-  // Fetch authenticated business logo as blob whenever logoUrl or hasLogo changes
+  // Fetch authenticated business logo as blob whenever logoUrl or hasLogo changes (ADMIN only)
   useEffect(() => {
+    if (!isAdmin) return;
     let cancelled = false;
     const cleanup = () => {
       if (businessBlobUrl) URL.revokeObjectURL(businessBlobUrl);
@@ -284,15 +359,16 @@ const Account: React.FC = () => {
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [business.logoUrl, business.hasLogo]);
+  }, [business.logoUrl, business.hasLogo, isAdmin]);
 
   const handleTabChange = (_evt: React.SyntheticEvent | null, newValue: number) => {
     setTabValue(newValue);
   };
 
-  // Save handlers
+  // Save handlers (guarded)
   const saveAboutMe = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     await client.put("/api/user-profile", aboutMe);
     alert("Profile updated");
     client.get("/api/user-profile").then((res) => {
@@ -303,27 +379,67 @@ const Account: React.FC = () => {
 
   const saveBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     await client.put("/api/business-profile", business);
     alert("Business updated");
     client.get("/api/business-profile").then((res) => {
       const data = res.data?.data ?? res.data;
-      if (data) setBusiness((prev) => ({ ...prev, ...data }));
+      if (data) {
+        setBusiness((prev) => ({ ...prev, ...data }));
+        const bid = data?.id ?? data?.businessId ?? data?.business?.id;
+        if (bid != null) {
+          client.defaults.headers.common["X-Business-Id"] = String(bid);
+          window.localStorage.setItem("x.business.id", String(bid));
+        }
+      }
     });
   };
 
   const subscribe = async (plan: string) => {
+    if (!isAdmin) return;
     await client.post("/api/subscriptions", { plan });
     alert(`Subscribed to ${plan}`);
   };
 
+  // Clamp and normalize VAT rate to [0, 99.99] with 2 dp
+  const normalizedVatRate = (v: number) => {
+    if (!Number.isFinite(v)) return 0;
+    const clamped = Math.max(0, Math.min(99.99, v));
+    return Math.round(clamped * 100) / 100;
+  };
+
   const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    await client.put("/api/settings", settings);
+    if (!isAdmin) return;
+
+    const body = {
+      currency: settings.currency,
+      abbreviation: settings.abbreviation,
+      enableVat: !!settings.enableVat,
+      pricesIncludeVat: !!settings.pricesIncludeVat,
+      vatRate: normalizedVatRate(Number(settings.vatRate)),
+    };
+
+    await client.put("/api/settings", body); // upsert endpoint
     alert("Settings saved");
+    // refresh from server (for canonical values)
+    client.get("/api/settings").then((res) => {
+      const data = res.data?.data ?? res.data;
+      if (data) {
+        setSettings({
+          currency: data.currency ?? body.currency,
+          abbreviation: data.abbreviation ?? body.abbreviation,
+          enableVat: !!data.enableVat,
+          pricesIncludeVat: !!data.pricesIncludeVat,
+          vatRate: Number(data.vatRate ?? body.vatRate) || 0,
+        });
+      }
+    });
   };
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     if (newPassword !== confirmPassword) return alert("Passwords don't match");
     await client.post("/api/change-password", { oldPassword, newPassword });
     alert("Password changed");
@@ -333,14 +449,16 @@ const Account: React.FC = () => {
   };
 
   const deactivate = async () => {
+    if (!isAdmin) return;
     if (window.confirm("Deactivate account?")) {
       await client.delete("/api/deactivate");
       logout();
     }
   };
 
-  // Upload handlers with correct AxiosProgressEvent type
+  // Upload handlers with correct AxiosProgressEvent type (guarded)
   const uploadFile = async (endpoint: string, file: File) => {
+    if (!isAdmin) return;
     const fd = new FormData();
     fd.append("file", file);
     setUploadProgress(0);
@@ -354,7 +472,6 @@ const Account: React.FC = () => {
         },
       });
 
-      // ✅ FIXED: Promise.all bracket/comma mismatch
       await Promise.all([
         client
           .get("/api/user-profile")
@@ -362,7 +479,15 @@ const Account: React.FC = () => {
           .catch(() => {}),
         client
           .get("/api/business-profile")
-          .then((r) => setBusiness((p) => ({ ...p, ...((r.data?.data ?? r.data) || {}) })))
+          .then((r) => {
+            const data = (r.data?.data ?? r.data) || {};
+            setBusiness((p) => ({ ...p, ...data }));
+            const bid = data?.id ?? data?.businessId ?? data?.business?.id;
+            if (bid != null) {
+              client.defaults.headers.common["X-Business-Id"] = String(bid);
+              window.localStorage.setItem("x.business.id", String(bid));
+            }
+          })
           .catch(() => {}),
       ]);
 
@@ -376,14 +501,17 @@ const Account: React.FC = () => {
   };
 
   const onPictureSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) return;
     const f = e.target.files?.[0];
     if (f) uploadFile(userPictureEndpoint, f);
   };
   const onIdDocSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) return;
     const f = e.target.files?.[0];
     if (f) uploadFile(userIdDocEndpoint, f);
   };
   const onLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) return;
     const f = e.target.files?.[0];
     if (f) uploadFile(businessLogoEndpoint, f);
   };
@@ -396,6 +524,20 @@ const Account: React.FC = () => {
       return d as string;
     }
   };
+
+  // ===== Early return for non-admins (no network, no UI) =====
+  if (!isAdmin) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h6" color="text.secondary">
+          Access denied
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Only administrators can view or modify Account settings on this device.
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3, backgroundColor: "#f9fafb" }}>
@@ -809,7 +951,7 @@ const Account: React.FC = () => {
       {tabValue === 3 && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Payment Settings
+            Business & Tax Settings
           </Typography>
           <form onSubmit={saveSettings}>
             <FormControl fullWidth sx={{ mb: 2 }}>
@@ -821,6 +963,8 @@ const Account: React.FC = () => {
               >
                 <MenuItem value="PHP">PHP</MenuItem>
                 <MenuItem value="USD">USD</MenuItem>
+                <MenuItem value="BWP">BWP</MenuItem>
+                <MenuItem value="ZAR">ZAR</MenuItem>
               </Select>
             </FormControl>
             <TextField
@@ -830,24 +974,55 @@ const Account: React.FC = () => {
               fullWidth
               sx={{ mb: 2 }}
             />
-            <TextField
-              label="VAT"
-              value={settings.vat}
-              onChange={(e) => setSettings({ ...settings, vat: e.target.value })}
-              fullWidth
-              sx={{ mb: 2 }}
-            />
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+              VAT
+            </Typography>
+
             <FormControlLabel
               control={
                 <Switch
-                  checked={settings.applyVat}
-                  onChange={(e) => setSettings({ ...settings, applyVat: e.target.checked })}
+                  checked={!!settings.enableVat}
+                  onChange={(e) => setSettings({ ...settings, enableVat: e.target.checked })}
                   color="primary"
                 />
               }
-              label="Apply VAT"
+              label="Enable VAT"
+              sx={{ mb: 1 }}
             />
-            <Button type="submit" variant="contained" sx={{ backgroundColor: "#4caf50", mt: 2 }}>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!settings.pricesIncludeVat}
+                  onChange={(e) => setSettings({ ...settings, pricesIncludeVat: e.target.checked })}
+                  color="primary"
+                  disabled={!settings.enableVat}
+                />
+              }
+              label="Prices include VAT"
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              label="VAT Rate (%)"
+              value={String(settings.vatRate ?? 0)}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  vatRate: Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0,
+                })
+              }
+              InputProps={{ inputMode: "decimal" }}
+              fullWidth
+              disabled={!settings.enableVat}
+              helperText="Example: 14 for 14% (max 99.99)"
+              sx={{ mb: 2 }}
+            />
+
+            <Button type="submit" variant="contained" sx={{ backgroundColor: "#4caf50", mt: 1 }}>
               Update
             </Button>
           </form>

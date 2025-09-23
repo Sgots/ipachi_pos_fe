@@ -1,4 +1,3 @@
-// src/pages/InventoryProducts.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Paper, Typography, TextField, Button, IconButton, Tooltip,
@@ -13,6 +12,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import InventoryTabs from "../components/InventoryTabs";
 import ProductDialog from "../components/ProductDialog";
+import { useAuth } from "../auth/AuthContext"; // <<< permissions
 
 // API
 import {
@@ -38,6 +38,12 @@ interface ProductRow {
 type Option = { id: number; name: string; abbr?: string };
 
 const InventoryProducts: React.FC = () => {
+  const { can } = useAuth();
+  const CAN_VIEW = can("INVENTORY", "VIEW");
+  const CAN_CREATE = can("INVENTORY", "CREATE");
+  const CAN_EDIT = can("INVENTORY", "EDIT");
+  const CAN_DELETE = can("INVENTORY", "DELETE");
+
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -56,12 +62,14 @@ const InventoryProducts: React.FC = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const loadOptions = async () => {
+    if (!CAN_VIEW) return;
     const [cats, units] = await Promise.all([allCategories(), allMeasurements()]);
     setCatOptions(cats);
     setUnitOptions(units);
   };
 
   const refresh = async () => {
+    if (!CAN_VIEW) return;
     setLoading(true);
     try {
       if (!catOptions.length || !unitOptions.length) {
@@ -88,8 +96,7 @@ const InventoryProducts: React.FC = () => {
             : null);
         const unitLabel = unitName ? `${unitName}${unitAbbr ? ` (${unitAbbr})` : ""}` : null;
 
-        // ✅ Always use per-unit buyPrice (BE now stores per-unit for both types)
-        const buy = Number(p.buyPrice);
+        const buy = Number(p.buyPrice); // per-unit
 
         return {
           id: p.id,
@@ -117,7 +124,7 @@ const InventoryProducts: React.FC = () => {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [CAN_VIEW]);
 
   useEffect(() => {
     if (open && (!catOptions.length || !unitOptions.length)) {
@@ -136,10 +143,9 @@ const InventoryProducts: React.FC = () => {
     );
   }, [rows, query]);
 
-  // helper to normalize a ProductDTO into ProductRow
   const toRow = (p: any): ProductRow => {
     const unitLabel = p.unitName ? `${p.unitName}${p.unitAbbr ? ` (${p.unitAbbr})` : ""}` : null;
-    const buy = Number(p.buyPrice); // ✅ per-unit
+    const buy = Number(p.buyPrice);
     return {
       id: p.id,
       sku: p.sku,
@@ -155,8 +161,8 @@ const InventoryProducts: React.FC = () => {
     };
   };
 
-  // ⬇️ top-level handlers
   const openPreview = async (row: ProductRow) => {
+    if (!CAN_VIEW) return;
     setPreviewFor({ id: row.id, name: row.name });
     setPreviewOpen(true);
     setPreviewLoading(true);
@@ -172,6 +178,7 @@ const InventoryProducts: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (!CAN_DELETE) { setErr("You don't have permission to delete products."); return; }
     try {
       await deleteProduct(id);
       setRows(prev => prev.filter(x => x.id !== id));
@@ -179,6 +186,20 @@ const InventoryProducts: React.FC = () => {
       setErr(e?.response?.data?.message || "Failed to delete product");
     }
   };
+
+  if (!CAN_VIEW) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <Typography variant="h6">Inventory &gt; Products</Typography>
+          <InventoryTabs />
+        </div>
+        <Paper className="p-4">
+          <Typography color="text.secondary">You don’t have permission to view Inventory.</Typography>
+        </Paper>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -207,13 +228,15 @@ const InventoryProducts: React.FC = () => {
           <Tooltip title="Refresh">
             <span><IconButton onClick={refresh}><RefreshIcon /></IconButton></span>
           </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => { setEditing(null); setOpen(true); }}
-          >
-            New Product
-          </Button>
+          {CAN_CREATE && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => { setEditing(null); setOpen(true); }}
+            >
+              New Product
+            </Button>
+          )}
         </div>
       </Paper>
 
@@ -259,15 +282,25 @@ const InventoryProducts: React.FC = () => {
                     <Button size="small" onClick={() => openPreview(p)}>
                       Preview ingredients
                     </Button>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => { setEditing(p); setOpen(true); }}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
+                    <Tooltip title={CAN_EDIT ? "Edit" : "No permission"}>
+                      <span>
+                        <IconButton size="small"
+                          onClick={() => { if (CAN_EDIT) { setEditing(p); setOpen(true); } }}
+                          disabled={!CAN_EDIT}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </span>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(p.id)}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
+                    <Tooltip title={CAN_DELETE ? "Delete" : "No permission"}>
+                      <span>
+                        <IconButton size="small" color="error"
+                          onClick={() => handleDelete(p.id)}
+                          disabled={!CAN_DELETE}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </TableCell>
                 </TableRow>
@@ -289,6 +322,10 @@ const InventoryProducts: React.FC = () => {
         units={unitOptions}
         onClose={() => setOpen(false)}
         onSave={async (payload: any) => {
+          // write-guard
+          if (editing && !CAN_EDIT) { setErr("You don't have permission to edit products."); return; }
+          if (!editing && !CAN_CREATE) { setErr("You don't have permission to create products."); return; }
+
           try {
             const isRecipe =
               payload.productType === "recipe" || payload.productType === "RECIPE";
@@ -302,20 +339,16 @@ const InventoryProducts: React.FC = () => {
                 categoryId: payload.categoryId ?? null,
                 unitId: payload.unitId ?? null,
                 sellPrice: Number(payload.sellPrice),
-                // ✅ persist per-unit buying price from dialog
                 buyPrice: Number(payload.buyPrice),
                 lifetime: payload.lifetime ?? null,
                 lowStock: payload.lowStock ?? null,
-                saleMode: payload.saleMode ?? undefined, // if present
+                saleMode: payload.saleMode ?? undefined,
                 productType: "RECIPE",
                 components: (payload.components || []).map((l: any) => ({
                   name: String(l.name || "").trim(),
-                  // 👇 FREE-TEXT measurement, don’t coerce to number
                   measurement: String(l.measurement ?? ""),
                   unitCost: Number(l.unitCost ?? 0),
                 })),
-                // optional: send batch total for preview/audit if BE supports it
-                // recipeCost: Number(payload.recipeCost ?? 0),
               };
 
               const created = hasImage
@@ -334,7 +367,7 @@ const InventoryProducts: React.FC = () => {
                 unitId: payload.unitId ?? null,
                 lifetime: payload.lifetime ?? null,
                 lowStock: payload.lowStock ?? null,
-                saleMode: payload.saleMode ?? undefined, // if present
+                saleMode: payload.saleMode ?? undefined,
               };
 
               let result: any;

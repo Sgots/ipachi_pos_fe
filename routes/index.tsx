@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/Login';
 import Customers from '../pages/Customers';
 import CashTill from '../pages/CashTill';
-import Features from '../pages/Features';
 import Staff from '../pages/StaffManagement';
 import RegisterWizard from "../pages/RegisterWizard";
 
@@ -97,16 +96,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
-      <Route
-        path="/features"
-        element={
-          <ProtectedRoute>
-            <Shell>
-              <Features />
-            </Shell>
-          </ProtectedRoute>
-        }
-      />
+
 
       <Route
         path="/transactions"

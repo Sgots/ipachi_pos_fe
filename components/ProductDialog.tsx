@@ -30,7 +30,7 @@ interface ProductDraft {
   barcode?: string;
   categoryId?: number | null;
   unitId?: number | null;
-  lifetime?: string | null;     // shelf life label
+  lifetime?: number | null;     // shelf life label
   lowStock?: number | null;     // threshold
   buyPrice?: number;            // per-unit cost (for recipes, this is per-unit)
   sellPrice?: number;           // required for both
@@ -47,6 +47,15 @@ interface ProductDraft {
   // local only
   imageFile?: File | null;
 }
+
+const toNumOrNull = (v: string): number | null =>
+  v.trim() === "" ? null : Number(v);
+
+const toNumOrUndef = (v: string): number | undefined =>
+  v.trim() === "" ? undefined : Number(v);
+
+const toNumMin1 = (v: string): number =>
+  Math.max(1, Number(v.trim() === "" ? 1 : Number(v)));
 
 const ProductDialog: React.FC<{
   open: boolean;
@@ -67,7 +76,7 @@ const ProductDialog: React.FC<{
     productType: "single",
     saleMode: "PER_UNIT",
     productsMade: 1,     // default yield
-    lifetime: "",
+    lifetime: null,
     lowStock: null,
     imageFile: null,
   });
@@ -81,7 +90,7 @@ const ProductDialog: React.FC<{
       productType: "single",
       saleMode: "PER_UNIT",
       productsMade: 1,
-      lifetime: "",
+      lifetime: null,
       lowStock: null,
       imageFile: null,
       ...(initial ?? {}),
@@ -330,9 +339,11 @@ const ProductDialog: React.FC<{
             <TextField
               label="Product lifetime"
               fullWidth
+              type="number"
               value={form.lifetime ?? ""}
-              onChange={(e) => setForm({ ...form, lifetime: e.target.value })}
-              placeholder="e.g., 7 days"
+              onChange={(e) => setForm({ ...form, lifetime: toNumOrNull(e.target.value) })}
+              placeholder="e.g., 7"
+              inputProps={{ min: 0 }}
             />
           </Grid>
           <Grid item xs={12} sm={3}>
@@ -342,7 +353,7 @@ const ProductDialog: React.FC<{
               fullWidth
               value={form.lowStock ?? ""}
               onChange={(e) =>
-                setForm({ ...form, lowStock: e.target.value === "" ? null : Number(e.target.value) })}
+                setForm({ ...form, lowStock: toNumOrNull(e.target.value) })}
               inputProps={{ min: 0 }}
             />
           </Grid>
@@ -356,7 +367,7 @@ const ProductDialog: React.FC<{
                 fullWidth
                 value={form.buyPrice ?? ""}
                 onChange={(e) =>
-                  setForm({ ...form, buyPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  setForm({ ...form, buyPrice: toNumOrUndef(e.target.value) })}
               />
             </Grid>
           )}
@@ -367,7 +378,7 @@ const ProductDialog: React.FC<{
               fullWidth
               value={form.sellPrice ?? ""}
               onChange={(e) =>
-                setForm({ ...form, sellPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
+                setForm({ ...form, sellPrice: toNumOrUndef(e.target.value) })}
             />
           </Grid>
 
@@ -380,7 +391,7 @@ const ProductDialog: React.FC<{
                 fullWidth
                 value={form.productsMade ?? 1}
                 onChange={(e) =>
-                  setForm({ ...form, productsMade: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value)) })}
+                  setForm({ ...form, productsMade: toNumMin1(e.target.value) })}
                 inputProps={{ min: 1 }}
                 helperText="How many finished units this batch produces"
               />

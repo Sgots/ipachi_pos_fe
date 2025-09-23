@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, TextField, Button, Chip } from '@mui/material';
 import DataTable from '../components/DataTable';
-import client from '../api/client';
+import { api } from '../api/client';              // ← change here
 import { API } from '../api/endpoints';
 import type { Customer } from '../types/customer';
 

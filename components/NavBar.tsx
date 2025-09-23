@@ -1,3 +1,4 @@
+// src/components/NavBar.tsx
 import React from "react";
 import {
   AppBar,
@@ -14,13 +15,17 @@ import {
 import LogoutIcon from "@mui/icons-material/Logout";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useAuth } from "../auth/AuthContext";
+import { useBusinessLogo } from "../hooks/UseBusinessLogo";
 
 const BRAND = { bar: "#f8fafc", text: "#0f172a", emerald: "#0f766e" };
 
 const NavBar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, terminalId, businessName, businessLogoUrl, logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+
+  // Use the stored business logo URL (if any)
+  const logoSrc = useBusinessLogo(businessLogoUrl || undefined, !!businessLogoUrl);
 
   const initials = (user?.username ?? "U")
     .split(/[.\s_@-]+/g)
@@ -28,6 +33,10 @@ const NavBar: React.FC = () => {
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase())
     .join("");
+
+  // SHOW NOTHING when terminalId is null/empty (no fallback)
+  const showTerminalChip =
+    terminalId !== null && terminalId !== undefined && String(terminalId).trim() !== "";
 
   return (
     <AppBar
@@ -37,18 +46,25 @@ const NavBar: React.FC = () => {
     >
       <Toolbar sx={{ minHeight: 64, px: { xs: 2, md: 3 } }}>
         {/* Left: Title / Terminal */}
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Ipachi POS Portal
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1 }}
+        >
+
+          {/* If we have a business name, show it; otherwise keep it blank (no fallback "Business") */}
+          {businessName ? `${businessName} Portal` : ""}
         </Typography>
-        <Chip
-          size="small"
-          sx={{ ml: 2, bgcolor: "#fde68a", color: "#92400e", fontWeight: 600 }}
-          label="TERMINAL 001"
-        />
+
+        {showTerminalChip && (
+          <Chip
+            size="small"
+            sx={{ ml: 2, bgcolor: "#fde68a", color: "#92400e", fontWeight: 600 }}
+            label={`TERMINAL : ${String(terminalId)}`}
+          />
+        )}
 
         {/* Right: User name + avatar/menu */}
         <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1.5 }}>
-          {/* Name visible here */}
           <Typography sx={{ fontWeight: 600 }}>{user?.username ?? "User"}</Typography>
 
           <Tooltip title="Account">

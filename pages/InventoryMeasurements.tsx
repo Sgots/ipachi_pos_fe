@@ -1,4 +1,3 @@
-// src/pages/InventoryMeasurements.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Paper, Typography, TextField, Button, IconButton, Tooltip,
@@ -11,10 +10,17 @@ import SearchIcon from "@mui/icons-material/Search";
 import InventoryTabs from "../components/InventoryTabs";
 import MeasurementDialog, { UnitDraft } from "../components/MeasurementDialog";
 import { allMeasurements, createMeasurement, updateMeasurement, deleteMeasurement } from "../api/inventory";
+import { useAuth } from "../auth/AuthContext"; // <<< permissions
 
 interface UnitRow { id: number; name: string; abbr: string; }
 
 const InventoryMeasurements: React.FC = () => {
+  const { can } = useAuth();
+  const CAN_VIEW = can("INVENTORY", "VIEW");
+  const CAN_CREATE = can("INVENTORY", "CREATE");
+  const CAN_EDIT = can("INVENTORY", "EDIT");
+  const CAN_DELETE = can("INVENTORY", "DELETE");
+
   const [rows, setRows] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -24,6 +30,7 @@ const InventoryMeasurements: React.FC = () => {
   const [editing, setEditing] = useState<UnitRow | null>(null);
 
   const refresh = async () => {
+    if (!CAN_VIEW) return;
     setLoading(true);
     try {
       const data = await allMeasurements(); // [{id,name,abbr,...}]
@@ -35,7 +42,7 @@ const InventoryMeasurements: React.FC = () => {
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [CAN_VIEW]);
 
   const filtered = useMemo(
     () => rows.filter(r => (r.name + r.abbr).toLowerCase().includes(query.toLowerCase())),
@@ -43,6 +50,7 @@ const InventoryMeasurements: React.FC = () => {
   );
 
   const handleDelete = async (id: number) => {
+    if (!CAN_DELETE) { setErr("You don't have permission to delete measurements."); return; }
     try {
       await deleteMeasurement(id);
       setRows(prev => prev.filter(x => x.id !== id));
@@ -50,6 +58,20 @@ const InventoryMeasurements: React.FC = () => {
       setErr(e?.response?.data?.message || "Failed to delete measurement");
     }
   };
+
+  if (!CAN_VIEW) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <Typography variant="h6">Inventory &gt; Measurements</Typography>
+          <InventoryTabs />
+        </div>
+        <Paper className="p-4">
+          <Typography color="text.secondary">You don’t have permission to view Inventory.</Typography>
+        </Paper>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -67,10 +89,12 @@ const InventoryMeasurements: React.FC = () => {
               InputProps={{ startAdornment: <SearchIcon className="mr-2 opacity-60" /> }}
             />
           </div>
-          <Button variant="contained" startIcon={<AddIcon/>}
-                  onClick={()=>{ setEditing(null); setOpen(true); }}>
-            Add measurement
-          </Button>
+          {CAN_CREATE && (
+            <Button variant="contained" startIcon={<AddIcon/>}
+                    onClick={()=>{ setEditing(null); setOpen(true); }}>
+              Add measurement
+            </Button>
+          )}
         </div>
       </Paper>
 
@@ -93,15 +117,25 @@ const InventoryMeasurements: React.FC = () => {
                 <TableCell>{u.name}</TableCell>
                 <TableCell>{u.abbr}</TableCell>
                 <TableCell align="right">
-                  <Tooltip title="Edit">
-                    <IconButton size="small" onClick={()=>{ setEditing(u); setOpen(true); }}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={CAN_EDIT ? "Edit" : "No permission"}>
+                    <span>
+                      <IconButton size="small"
+                        onClick={()=>{ if (CAN_EDIT) { setEditing(u); setOpen(true); } }}
+                        disabled={!CAN_EDIT}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton size="small" color="error" onClick={()=>handleDelete(u.id)}>
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={CAN_DELETE ? "Delete" : "No permission"}>
+                    <span>
+                      <IconButton size="small" color="error"
+                        onClick={()=>handleDelete(u.id)}
+                        disabled={!CAN_DELETE}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </TableCell>
               </TableRow>
@@ -119,11 +153,14 @@ const InventoryMeasurements: React.FC = () => {
         initial={editing ?? undefined}
         onClose={()=>setOpen(false)}
         onSave={async (val: Partial<UnitDraft>) => {
-          try {
-            const name = (val.name || "").trim();
-            const abbr = (val.abbr || "").trim();
-            if (!name || !abbr) return;
+          const name = (val.name || "").trim();
+          const abbr = (val.abbr || "").trim();
+          if (!name || !abbr) return;
 
+          if (editing && !CAN_EDIT) { setErr("You don't have permission to edit measurements."); return; }
+          if (!editing && !CAN_CREATE) { setErr("You don't have permission to create measurements."); return; }
+
+          try {
             if (editing) {
               const updated = await updateMeasurement(editing.id, { name, abbr });
               setRows(prev => prev.map(r => r.id === editing.id ? { id: updated.id, name: updated.name, abbr: updated.abbr } : r));

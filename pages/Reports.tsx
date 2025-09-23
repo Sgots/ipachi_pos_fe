@@ -1,415 +1,563 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  Grid,
-  Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Chip,
+  Box, Paper, Typography, Grid, Button, TextField,
+  FormControl, InputLabel, Select, MenuItem, Divider, Table, TableHead, TableRow, TableCell, TableBody, Chip
 } from "@mui/material";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
+  ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip,
+  LineChart, Line, PieChart, Pie, Cell, Legend
 } from "recharts";
+import client from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
-type ReportType = "Sales" | "Profit" | "Inventory";
+type ReportType = "Comprehensive" | "Cash Up" | "Trade Account Statement";
 
 const COLORS = ["#2f7ae5", "#ef6c00", "#6d28d9", "#10b981", "#9ca3af", "#f59e0b", "#ef4444"];
+const brand = { dark: "#0c5b4a", pale: "#e7f3ec" };
 
-const brand = {
-  dark: "#0c5b4a",
-  pale: "#e7f3ec",
-  pill: "#f6faf8",
-};
+type ApiResponse<T> = { code: string; message: string; data: T };
+
+const toIsoStart = (d: string) => new Date(d + "T00:00:00").toISOString();
+const toIsoEnd = (d: string) => new Date(d + "T23:59:59").toISOString();
 
 const Reports: React.FC = () => {
-  // Filters (stub – wire to your API as needed)
-  const [reportType, setReportType] = useState<ReportType>("Sales");
-  const [start, setStart] = useState<string>("2025-08-01");
-  const [end, setEnd] = useState<string>("2025-08-31");
+  const { can } = useAuth();
+  const CAN_VIEW_REPORTS = can("REPORTS", "VIEW");
 
-  // ---- MOCK DATA (replace with API) ----
-  const kpis = {
-    customersServed: 1250,
-    totalSales: 520000,
-    overallProfit: 230000,
-    topProduct: "Beans",
+  // === Header wiring ===
+  const readBiz = () => localStorage.getItem("x.business.id") || "";
+  const [bizId, setBizId] = useState<string>(readBiz());
+
+  const applyHeaders = useCallback(() => {
+    const headers = (client as any).defaults.headers.common || {};
+    const user = localStorage.getItem("x.user.id") || "1";
+    const term = localStorage.getItem("x.terminal.id") || "1";
+
+    if (bizId) headers["X-Business-Id"] = bizId; else delete headers["X-Business-Id"];
+    headers["X-User-Id"] = user;
+    headers["X-Terminal-Id"] = term;
+
+    (client as any).defaults.headers.common = headers;
+  }, [bizId]);
+
+  useEffect(() => {
+    applyHeaders();
+  }, [applyHeaders]);
+
+  const [reportType, setReportType] = useState<ReportType>("Comprehensive");
+  const now = new Date();
+  const ytd = `${now.getFullYear()}-01-01`;
+  const today = now.toISOString().slice(0, 10);
+
+  const [start, setStart] = useState<string>(ytd);
+  const [end, setEnd] = useState<string>(today);
+
+  // data
+  const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState<any>({ customersServed: 0, totalSales: 0, overallProfit: 0, topProduct: "-" });
+  const [salesByProduct, setSalesByProduct] = useState<any[]>([]);
+  const [salesTrend, setSalesTrend] = useState<any[]>([]);
+  const [bestThree, setBestThree] = useState<any[]>([]);
+  const [profitByCategory, setProfitByCategory] = useState<any[]>([]);
+  const [salesByLocation, setSalesByLocation] = useState<any[]>([]);
+  const [cashRows, setCashRows] = useState<any[]>([]);
+  const [cashTotals, setCashTotals] = useState<any>({ totalCash: 0, totalProfit: 0, cashBalance: 0 });
+  const [ta, setTA] = useState<any>({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+  const [errNote, setErrNote] = useState<string>("");
+
+  const params = useMemo(() => ({ start: toIsoStart(start), end: toIsoEnd(end) }), [start, end]);
+  const arr = (x: unknown) => (Array.isArray(x) ? x : []);
+
+  const loadAll = async () => {
+    if (!CAN_VIEW_REPORTS) {
+      setErrNote("You don't have permission to view Reports.");
+      setKpis({ customersServed: 0, totalSales: 0, overallProfit: 0, topProduct: "-" });
+      setSalesByProduct([]); setSalesTrend([]); setBestThree([]); setProfitByCategory([]); setSalesByLocation([]);
+      setCashRows([]); setCashTotals({ totalCash: 0, totalProfit: 0, cashBalance: 0 }); setTA({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+      return;
+    }
+
+    if (!bizId) {
+      setErrNote("Business ID is required to fetch reports.");
+      return;
+    }
+    setErrNote("");
+    setLoading(true);
+    try {
+      const { data: dash } = await client.get<ApiResponse<any>>("/api/reports/dashboard", { params });
+      setKpis(dash.data ?? { customersServed: 0, totalSales: 0, overallProfit: 0, topProduct: "-" });
+
+      const [
+        { data: sbp },
+        { data: trend },
+        { data: top3 },
+        { data: cat },
+        { data: loc },
+      ] = await Promise.all([
+        client.get<ApiResponse<any[]>>("/api/reports/sales-by-product", { params }),
+        client.get<ApiResponse<any[]>>("/api/reports/monthly-trend", { params }),
+        client.get<ApiResponse<any[]>>("/api/reports/best-performers", { params: { ...params, top: 3 } }),
+        client.get<ApiResponse<any[]>>("/api/reports/profit-by-category", { params }),
+        client.get<ApiResponse<any[]>>("/api/reports/sales-by-location", { params }),
+      ]);
+
+      setSalesByProduct(arr(sbp?.data).map((r: any) => ({ name: r.name, value: Number(r.total) })));
+      setSalesTrend(arr(trend?.data).map((r: any) => ({ month: r.period, value: Number(r.total) })));
+      setBestThree(arr(top3?.data).map((r: any) => ({ name: r.name, value: Number(r.total) })));
+      setProfitByCategory(arr(cat?.data).map((r: any) => ({ name: r.category, value: Number(r.profit) })));
+      setSalesByLocation(arr(loc?.data).map((r: any) => ({ name: r.location, value: Number(r.total) })));
+
+      if (reportType === "Cash Up") {
+        const { data } = await client.get<ApiResponse<any>>("/api/reports/cashup", { params });
+        setCashRows(arr(data?.data?.rows).map((r: any) => ({
+          product: r.product, cash: Number(r.cash), profit: Number(r.profit),
+        })));
+        setCashTotals({
+          totalCash: Number(data?.data?.totals?.totalCash ?? 0),
+          totalProfit: Number(data?.data?.totals?.totalProfit ?? 0),
+          cashBalance: Number(data?.data?.totals?.cashBalance ?? 0),
+        });
+      } else {
+        setCashRows([]);
+        setCashTotals({ totalCash: 0, totalProfit: 0, cashBalance: 0 });
+      }
+
+      if (reportType === "Trade Account Statement") {
+        const { data } = await client.get<ApiResponse<any>>("/api/reports/trade-account", { params });
+        setTA(data?.data ?? { sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+      } else {
+        setTA({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+      }
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const body = e?.response?.data;
+      console.error("Reports loadAll() failed:", status, body || e?.message);
+      if (status === 403) {
+        setErrNote("Access denied (403). Check X-User-Id, X-Terminal-Id, and X-Business-Id headers.");
+      } else if (status === 400) {
+        setErrNote("Bad request (400). Verify date range and parameters.");
+      } else {
+        setErrNote("Failed to load reports. See console for details.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const salesByProduct = [
-    { name: "Coke 350ml", value: 10500 },
-    { name: "Maize 12.5kg", value: 1500 },
-    { name: "Beans", value: 13500 },
-    { name: "Magwinya", value: 5000 },
-    { name: "Tomato", value: 1200 },
-    { name: "Onion", value: 2500 },
-    { name: "Carrot", value: 14000 },
-    { name: "Chilli sauce", value: 5800 },
-    { name: "Corn flake", value: 900 },
-    { name: "Water", value: 1200 },
-    { name: "Candy", value: 11000 },
-    { name: "Koo Beans", value: 14500 },
-    { name: "Beef", value: 7000 },
-    { name: "Pork", value: 800 },
-    { name: "Chicken", value: 1300 },
-  ];
+  useEffect(() => {
+    loadAll();
+  }, [reportType, params.start, params.end, bizId, CAN_VIEW_REPORTS]);
 
-  const salesTrend = [
-    { month: "Jan", value: 100000 },
-    { month: "Feb", value: 125000 },
-    { month: "Mar", value: 80000 },
-    { month: "Apr", value: 200000 },
-    { month: "May", value: 170000 },
-    { month: "Jun", value: 50000 },
-    { month: "Jul", value: 15000 },
-    { month: "Aug", value: 90000 },
-    { month: "Sep", value: 10000 },
-  ];
+  const comments = useMemo(() => {
+    const grossMargin = kpis.totalSales ? (100 * (kpis.overallProfit / kpis.totalSales)).toFixed(1) + "%" : "-";
+    return [
+      { text: `Business made a Gross ${kpis.overallProfit >= 0 ? "Profit" : "Loss"} of BWP ${Math.abs(kpis.overallProfit).toLocaleString()}` },
+      { text: `Best performing product: ${kpis.topProduct}` },
+      { text: `Gross Margin is ${grossMargin}` },
+    ];
+  }, [kpis]);
 
-  const bestThree = [
-    { name: "Coke 350ml", value: 36 },
-    { name: "Beans", value: 45 },
-    { name: "Magwinya", value: 19 },
-  ];
-
-  const profitByCategory = [
-    { name: "Beverages", value: 25 },
-    { name: "Breakfast", value: 15 },
-    { name: "Lunch", value: 5 },
-    { name: "Clothes", value: 10 },
-    { name: "Snacks", value: 45 },
-  ];
-
-  const salesByLocation = [
-    { name: "Gaborone", value: 9000 },
-    { name: "Mapoka", value: 16000 },
-    { name: "Mochudi", value: 1200 },
-    { name: "Selibe Phikwe", value: 6000 },
-  ];
-
-  const cashUp = [
-    { product: "Coke 350ml", cash: 1000, profit: 300 },
-    { product: "Maize 12.5Kg", cash: 200, profit: 60 },
-    { product: "Beans", cash: 800, profit: 240 },
-    { product: "Magwinya", cash: 500, profit: 150 },
-    { product: "Tomato Sauce", cash: 450, profit: 135 },
-    { product: "Mayonnaise", cash: 450, profit: 135 },
-  ];
-
-  const totals = useMemo(() => {
-    const cash = cashUp.reduce((s, r) => s + r.cash, 0);
-    const profit = cashUp.reduce((s, r) => s + r.profit, 0);
-    return { cash, profit };
-  }, [cashUp]);
-
-  const tradeAccount = {
-    sales: 25000,
-    openingStock: 10000,
-    newStock: 50000,
-    closingStock: 50000,
-    costOfSales: 10000,
-    grossPL: 15000,
-  };
-
-  const comments = [
-    { text: "Sales declined by 12% compared to the previous month, driven mainly by Beans and Coke", strong: ["12%", "Beans", "Coke"] },
-    { text: "Business made a Gross Profit of BWP1500", strong: ["BWP1500"] },
-    { text: "Beans is the best performer, contributing 35% of total sales.", strong: ["Beans", "35%"] },
-    { text: "Maize 12.5kg is the least contributor to total sales and may require your attention", strong: ["Maize 12.5kg"] },
-    { text: "Gross Margin is 65%", strong: ["65%"] },
-    { text: "Stock turnover is 2.15 times", strong: ["2.15 times"] },
-  ];
-
-  // ---- EXPORT (simple CSV) ----
   const exportCSV = () => {
+    if (!CAN_VIEW_REPORTS) return;
     const rows: string[] = [];
     rows.push("Section,Metric,Value");
     rows.push(`KPIs,Customers Served,${kpis.customersServed}`);
-    rows.push(`KPIs,Total Sales (BWP),${kpis.totalSales}`);
-    rows.push(`KPIs,Overall Profit (BWP),${kpis.overallProfit}`);
+    rows.push(`KPIs,Total Sales,${kpis.totalSales}`);
+    rows.push(`KPIs,Overall Profit,${kpis.overallProfit}`);
     rows.push(`KPIs,Top Product,${kpis.topProduct}`);
     rows.push("");
     rows.push("Sales by Product,Item,BWP");
-    salesByProduct.forEach((r) => rows.push(`Sales by Product,${r.name},${r.value}`));
+    salesByProduct.forEach(r => rows.push(`Sales by Product,${r.name},${r.value}`));
     rows.push("");
     rows.push("Sales Trend,Month,BWP");
-    salesTrend.forEach((r) => rows.push(`Sales Trend,${r.month},${r.value}`));
+    salesTrend.forEach(r => rows.push(`Sales Trend,${r.month},${r.value}`));
+    rows.push("");
+    rows.push("Profit by Category,Category,BWP");
+    profitByCategory.forEach(r => rows.push(`Profit by Category,${r.name},${r.value}`));
     rows.push("");
     rows.push("Sales by Location,Location,BWP");
-    salesByLocation.forEach((r) => rows.push(`Sales by Location,${r.name},${r.value}`));
-    rows.push("");
-    rows.push("Cash-Up Report,Product,Cash,Profit");
-    cashUp.forEach((r) => rows.push(`Cash-Up Report,${r.product},${r.cash},${r.profit}`));
-    rows.push("");
-    rows.push("Trade Account Statement,Metric,Value");
-    Object.entries(tradeAccount).forEach(([k, v]) => rows.push(`Trade Account Statement,${k},${v}`));
-
-    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    salesByLocation.forEach(r => rows.push(`Sales by Location,${r.name},${r.value}`));
+    if (reportType === "Cash Up") {
+      rows.push("");
+      rows.push("Cash-Up Report,Product,Cash,Profit");
+      cashRows.forEach(r => rows.push(`Cash-Up Report,${r.product},${r.cash},${r.profit}`));
+      rows.push(`Cash-Up Totals,Total Cash,${cashTotals.totalCash}`);
+      rows.push(`Cash-Up Totals,Total Profit,${cashTotals.totalProfit}`);
+      rows.push(`Cash-Up Totals,Cash Balance,${cashTotals.cashBalance}`);
+    }
+    if (reportType === "Trade Account Statement") {
+      rows.push("");
+      rows.push("Trade Account Statement,Metric,Value");
+      Object.entries(ta).forEach(([k, v]) => rows.push(`Trade Account Statement,${k},${v}`));
+    }
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `report_${start}_to_${end}.csv`;
-    a.click();
+    a.href = url; a.download = `report_${start}_to_${end}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Reports
-      </Typography>
+  const handleSaveBiz = () => {
+    localStorage.setItem("x.business.id", bizId.trim());
+    applyHeaders();
+    loadAll();
+  };
 
-      {/* Filters row */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+  if (!CAN_VIEW_REPORTS) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h6" color="text.secondary">
+          You don’t have permission to view Reports.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 3, bgcolor: '#f5f5f5' }}>
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: 700, color: brand.dark }}>Reports</Typography>
+
+      {!bizId && (
+        <Paper sx={{ p: 2, mb: 3, borderLeft: `4px solid ${brand.dark}`, bgcolor: brand.pale, borderRadius: 2 }}>
+          <Typography sx={{ mb: 1, fontWeight: 700 }}>Business ID required</Typography>
+          <TextField
+            size="small"
+            label="Business ID"
+            value={bizId}
+            onChange={(e) => setBizId(e.target.value)}
+            sx={{ mr: 1 }}
+          />
+          <Button variant="contained" onClick={handleSaveBiz} sx={{ bgcolor: brand.dark, '&:hover': { bgcolor: '#094d3e' } }}>
+            Save
+          </Button>
+        </Paper>
+      )}
+
+      {errNote && (
+        <Paper sx={{ p: 2, mb: 3, borderLeft: "4px solid #ef4444", bgcolor: "#fff5f5", borderRadius: 2 }}>
+          <Typography color="error" sx={{ fontWeight: 700, mb: 0.5 }}>Error</Typography>
+          <Typography variant="body2">{errNote}</Typography>
+        </Paper>
+      )}
+
+      <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md="auto">
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="rpt-type">Select report type</InputLabel>
-              <Select labelId="rpt-type" label="Select report type" value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)}>
-                <MenuItem value="Sales">Sales</MenuItem>
-                <MenuItem value="Profit">Profit</MenuItem>
-                <MenuItem value="Inventory">Inventory</MenuItem>
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="rpt-type">Report Type</InputLabel>
+              <Select
+                labelId="rpt-type"
+                label="Report Type"
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value as ReportType)}
+                sx={{ bgcolor: 'white' }}
+              >
+                <MenuItem value="Comprehensive">Comprehensive (YTD)</MenuItem>
+                <MenuItem value="Cash Up">Cash Up</MenuItem>
+                <MenuItem value="Trade Account Statement">Trade Account Statement</MenuItem>
               </Select>
             </FormControl>
           </Grid>
           <Grid item xs={12} md="auto">
-            <TextField size="small" type="date" label="Start Date" InputLabelProps={{ shrink: true }} value={start} onChange={(e) => setStart(e.target.value)} />
+            <TextField
+              size="small"
+              type="date"
+              label="Start Date"
+              InputLabelProps={{ shrink: true }}
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              sx={{ bgcolor: 'white' }}
+            />
           </Grid>
           <Grid item xs={12} md="auto">
-            <TextField size="small" type="date" label="End Date" InputLabelProps={{ shrink: true }} value={end} onChange={(e) => setEnd(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md="auto">
-            <Button variant="contained" sx={{ bgcolor: brand.dark, "&:hover": { bgcolor: "#0a4e40" } }}>
-              GO
-            </Button>
+            <TextField
+              size="small"
+              type="date"
+              label="End Date"
+              InputLabelProps={{ shrink: true }}
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              sx={{ bgcolor: 'white' }}
+            />
           </Grid>
           <Grid item xs />
           <Grid item xs={12} md="auto">
-            <Button variant="contained" color="warning" onClick={exportCSV}>
-              EXPORT REPORT
+            <Button
+              variant="contained"
+              sx={{ bgcolor: brand.dark, '&:hover': { bgcolor: '#094d3e' } }}
+              onClick={exportCSV}
+              disabled={loading || !CAN_VIEW_REPORTS}
+            >
+              Export Report
             </Button>
           </Grid>
         </Grid>
       </Paper>
 
       {/* KPI Cards */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="overline">Customers Served</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>{kpis.customersServed.toLocaleString()}</Typography>
-          </Paper>
+      <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <Grid container spacing={2} alignItems="center">
+          {[
+            { label: "Customers Served", value: Number(kpis.customersServed || 0).toLocaleString(), unit: "" },
+            { label: "Total Sales", value: Number(kpis.totalSales || 0).toLocaleString(), unit: "BWP" },
+            { label: "Overall Profit", value: Number(kpis.overallProfit || 0).toLocaleString(), unit: "BWP" },
+            { label: "Top Selling Product", value: kpis.topProduct, unit: "" },
+          ].map((kpi, index) => (
+            <Grid item xs={12} md={3} key={index}>
+              <Box sx={{ p: 2, bgcolor: brand.pale, borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{kpi.label}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: brand.dark, mt: 0.5 }}>
+                  {kpi.unit ? `${kpi.unit} ${kpi.value}` : kpi.value}
+                </Typography>
+              </Box>
+            </Grid>
+          ))}
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="overline">BWP</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>BWP {kpis.totalSales.toLocaleString()}</Typography>
-            <Typography variant="body2" color="text.secondary">Total Sales</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="overline">BWP</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>BWP {kpis.overallProfit.toLocaleString()}</Typography>
-            <Typography variant="body2" color="text.secondary">Overall Profit</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, display: "flex", alignItems: "center", gap: 2 }}>
-            <Box sx={{ width: 10, height: 10, bgcolor: brand.dark, borderRadius: "50%" }} />
-            <Box>
-              <Typography variant="overline">Top Selling Product</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{kpis.topProduct}</Typography>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+      </Paper>
 
-      {/* Charts Row 1 */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
+      {/* Charts */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Sales by Product</Typography>
+          <Paper sx={{ p: 2, height: 400, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
+              Sales by Product
+            </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesByProduct} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" hide />
-                <YAxis />
+              <BarChart
+                data={salesByProduct}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis
+                  dataKey="name"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
+                  tick={{ fontSize: 12 }}
+                />
                 <Tooltip />
-                <Bar dataKey="value" fill={COLORS[0]} />
+                <Legend verticalAlign="bottom" height={36} />
+                <Bar dataKey="value" fill={COLORS[0]} name="Sales" maxBarSize={64} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Sales Trends</Typography>
+          <Paper sx={{ p: 2, height: 400, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
+              Sales Trends
+            </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={salesTrend} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+              <LineChart
+                data={salesTrend}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis
+                  dataKey="month"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
+                  tick={{ fontSize: 12 }}
+                />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke={COLORS[0]} strokeWidth={2} dot={false} />
+                <Legend verticalAlign="bottom" height={36} />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={COLORS[0]}
+                  strokeWidth={2}
+                  dot={false}
+                  name="Sales Trend"
+                />
               </LineChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Charts Row 2 */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 330 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Best 3 Performers</Typography>
+          <Paper sx={{ p: 2, height: 360, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
+              Best 3 Performers
+            </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={bestThree} dataKey="value" nameKey="name" outerRadius={100} label>
-                  {bestThree.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <Pie
+                  data={bestThree}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={100}
+                  label={{ fontSize: 12 }}
+                >
+                  {bestThree.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
                 </Pie>
                 <Tooltip />
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 330 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Profit by Category</Typography>
+          <Paper sx={{ p: 2, height: 360, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
+              Profit by Category
+            </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={profitByCategory} dataKey="value" nameKey="name" outerRadius={100} label>
-                  {profitByCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
+              <BarChart
+                data={profitByCategory}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis
+                  dataKey="name"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
+                  tick={{ fontSize: 12 }}
+                />
                 <Tooltip />
-              </PieChart>
+                <Legend verticalAlign="bottom" height={36} />
+                <Bar dataKey="value" fill={COLORS[1]} name="Profit" />
+              </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 330 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Sales by Location</Typography>
+          <Paper sx={{ p: 2, height: 360, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
+              Sales by Location
+            </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesByLocation}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+              <BarChart
+                data={salesByLocation}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis
+                  dataKey="name"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
+                  tick={{ fontSize: 12 }}
+                />
                 <Tooltip />
-                <Bar dataKey="value" fill={COLORS[1]} />
+                <Legend verticalAlign="bottom" height={36} />
+                <Bar dataKey="value" fill={COLORS[1]} name="Sales" />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Trade Account Statement */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-          Trade Account Statement
-        </Typography>
-        <Grid container spacing={2}>
-          {[
-            { label: "Sales", value: tradeAccount.sales },
-            { label: "Opening Stock", value: tradeAccount.openingStock },
-            { label: "New Stock", value: tradeAccount.newStock },
-            { label: "Closing Stock", value: tradeAccount.closingStock },
-            { label: "Cost of Sales", value: tradeAccount.costOfSales },
-            { label: "Gross Profit/Loss", value: tradeAccount.grossPL },
-          ].map((k) => (
-            <Grid item xs={12} md={2} key={k.label}>
-              <Paper sx={{ p: 2, textAlign: "center", borderRadius: 3 }}>
-                <Typography variant="caption" color="text.secondary">{k.label}</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, mt: 0.5 }}>
-                  {k.value.toLocaleString()}
-                </Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-
-      {/* Cash-Up + Comments */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Cash-Up Report</Typography>
-            <Divider sx={{ mb: 1 }} />
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Cash</TableCell>
-                  <TableCell align="right">Profit</TableCell>
+      {/* Cash-Up Report */}
+      {reportType === "Cash Up" && (
+        <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1, color: brand.dark }}>
+            Cash-Up Report
+          </Typography>
+          <Divider sx={{ mb: 2, bgcolor: brand.dark }} />
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: brand.pale }}>
+                <TableCell sx={{ fontWeight: 700, color: brand.dark }}>Product</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Cash</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Profit</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {cashRows.map((r) => (
+                <TableRow key={r.product}>
+                  <TableCell>{r.product}</TableCell>
+                  <TableCell align="right">{Math.round(r.cash).toLocaleString()}</TableCell>
+                  <TableCell align="right">{Math.round(r.profit).toLocaleString()}</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {cashUp.map((r) => (
-                  <TableRow key={r.product}>
-                    <TableCell>{r.product}</TableCell>
-                    <TableCell align="right">{r.cash}</TableCell>
-                    <TableCell align="right">{r.profit}</TableCell>
-                  </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{totals.cash}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{totals.profit}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-
-            <Typography sx={{ mt: 2, fontWeight: 700 }}>Cash Balance Survey</Typography>
-            <Chip label="4420" sx={{ mt: 1, bgcolor: brand.pale, color: brand.dark, fontWeight: 700 }} />
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, bgcolor: brand.pale }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-              General Comments
-            </Typography>
-            <Divider sx={{ mb: 1 }} />
-            <Box sx={{ pl: 1 }}>
-              {comments.map((c, idx) => (
-                <Box key={idx} sx={{ display: "flex", gap: 1, mb: 1.2 }}>
-                  <Box sx={{ width: 10, height: 10, bgcolor: brand.dark, borderRadius: "50%", mt: 1 }} />
-                  <Typography sx={{ lineHeight: 1.6 }}>
-                    {c.text.split(" ").map((w, i) => {
-                      const t = w.replace(/[,\.]/g, "");
-                      const strong = c.strong.some((s) => t.includes(s.replace(/[,\.]/g, "")));
-                      return (
-                        <Box key={i} component="span" sx={{ fontWeight: strong ? 700 : 400 }}>
-                          {w}{" "}
-                        </Box>
-                      );
-                    })}
-                  </Typography>
-                </Box>
               ))}
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+              <TableRow sx={{ bgcolor: brand.pale }}>
+                <TableCell sx={{ fontWeight: 700, color: brand.dark }}>Total</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>
+                  {Math.round(cashTotals.totalCash).toLocaleString()}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>
+                  {Math.round(cashTotals.totalProfit).toLocaleString()}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <Typography sx={{ mt: 2, fontWeight: 700, color: brand.dark }}>Cash Balance</Typography>
+          <Chip
+            label={Math.round(cashTotals.cashBalance).toLocaleString()}
+            sx={{ mt: 1, bgcolor: brand.dark, color: 'white', fontWeight: 700 }}
+          />
+        </Paper>
+      )}
+
+      {/* Trade Account Statement */}
+      {reportType === "Trade Account Statement" && (
+        <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1, color: brand.dark }}>
+            Trade Account Statement
+          </Typography>
+          <Divider sx={{ mb: 2, bgcolor: brand.dark }} />
+          <Grid container spacing={2}>
+            {[
+              { label: "Sales", value: ta.sales },
+              { label: "Opening Stock", value: ta.openingStock },
+              { label: "New Stock", value: ta.newStock },
+              { label: "Closing Stock", value: ta.closingStock },
+              { label: "Cost of Sales", value: ta.costOfSales },
+              { label: "Gross Profit/Loss", value: ta.grossPL },
+            ].map((k) => (
+              <Grid item xs={12} md={2} key={k.label}>
+                <Paper sx={{ p: 2, textAlign: "center", borderRadius: 2, bgcolor: brand.pale }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    {k.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: brand.dark, mt: 0.5 }}>
+                    {Math.round(Number(k.value || 0)).toLocaleString()}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
+
+      {/* Comments */}
+      <Paper sx={{ p: 2, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: brand.dark }}>
+          General Comments
+        </Typography>
+        {comments.map((c, i) => (
+          <Box key={i} sx={{ display: "flex", gap: 1, mb: 1.5, alignItems: "center" }}>
+            <Box sx={{ width: 12, height: 12, bgcolor: brand.dark, borderRadius: "50%" }} />
+            <Typography variant="body2" sx={{ color: brand.dark }}>{c.text}</Typography>
+          </Box>
+        ))}
+      </Paper>
     </Box>
   );
 };

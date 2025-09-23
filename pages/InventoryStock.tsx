@@ -1,4 +1,3 @@
-// src/pages/InventoryStock.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Paper, Typography, TextField, Button, IconButton, Tooltip,
@@ -17,6 +16,7 @@ import StockReceiptDialog from "../components/StockReceiptDialog";
 import {
   fetchStock, restockProduct, searchReceipts, uploadStockReceipt
 } from "../api/inventory";
+import { useAuth } from "../auth/AuthContext"; // <<< permissions
 
 type StockRow = {
   id: number; sku: string; barcode?: string | null; name: string;
@@ -29,7 +29,8 @@ const RestockDialog: React.FC<{
   row?: StockRow | null;
   onClose: () => void;
   onUpdated: (productId: number, newQty: number) => void;
-}> = ({ open, row, onClose, onUpdated }) => {
+  canEdit: boolean; // <<< pass permission
+}> = ({ open, row, onClose, onUpdated, canEdit }) => {
   const [qty, setQty] = useState<number | "">("");
   const [receiptQ, setReceiptQ] = useState("");
   const [opts, setOpts] = useState<any[]>([]);
@@ -47,11 +48,11 @@ const RestockDialog: React.FC<{
   }, [open, receiptQ]);
 
   const submit = async () => {
+    if (!canEdit) return; // guard
     const delta = Number(qty);
     if (!row?.id || !Number.isFinite(delta) || delta <= 0) return;
     setBusy(true);
     try {
-      // ✅ THIS is the only call on “Add” here — restock endpoint
       const res = await restockProduct(row.id, delta, sel?.id);
       onUpdated(res.productId, Number(res.quantity));
       onClose();
@@ -72,6 +73,7 @@ const RestockDialog: React.FC<{
             autoFocus label="Quantity to add" type="number" fullWidth className="mb-4"
             value={qty} onChange={(e)=>setQty(e.target.value === "" ? "" : Number(e.target.value))}
             inputProps={{ min: 1 }}
+            disabled={!canEdit}
           />
           <Autocomplete
             options={opts}
@@ -80,9 +82,10 @@ const RestockDialog: React.FC<{
             onChange={(_e,v)=>setSel(v)}
             onInputChange={(_e,v)=>setReceiptQ(v)}
             renderInput={(p)=><TextField {...p} label="Link receipt (optional)" placeholder="Search by label or filename" />}
+            disabled={!canEdit}
           />
           <div className="mt-2">
-            <Button size="small" onClick={()=>setUploadOpen(true)}>Upload new receipt…</Button>
+            <Button size="small" onClick={()=>setUploadOpen(true)} disabled={!canEdit}>Upload new receipt…</Button>
             {sel?.fileUrl && (
               <Button size="small" onClick={()=>window.open(sel.fileUrl, "_blank")}>Open selected</Button>
             )}
@@ -90,17 +93,17 @@ const RestockDialog: React.FC<{
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="contained" onClick={submit} disabled={!qty || Number(qty) <= 0 || busy}>Add</Button>
+          <Button variant="contained" onClick={submit} disabled={!qty || Number(qty) <= 0 || busy || !canEdit}>Add</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Inline uploader to create a receipt, then link it */}
       <StockReceiptDialog
         open={uploadOpen}
         onClose={()=>setUploadOpen(false)}
         onUpload={async (label, file) => {
-          const r = await uploadStockReceipt(label, file); // ✅ /receipts
-          setSel(r);                          // link the just-uploaded receipt
+          if (!canEdit) return;
+          const r = await uploadStockReceipt(label, file);
+          setSel(r);
           setOpts(await searchReceipts(label));
           setUploadOpen(false);
         }}
@@ -110,6 +113,12 @@ const RestockDialog: React.FC<{
 };
 
 const InventoryStock: React.FC = () => {
+  const { can } = useAuth();
+  const CAN_VIEW = can("INVENTORY", "VIEW");
+  const CAN_CREATE = can("INVENTORY", "CREATE");
+  const CAN_EDIT = can("INVENTORY", "EDIT");
+  const CAN_DELETE = can("INVENTORY", "DELETE");
+
   const [rows, setRows] = useState<StockRow[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,13 +130,14 @@ const InventoryStock: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
 
   const load = async () => {
+    if (!CAN_VIEW) return;
     setLoading(true);
     try {
       const data = await fetchStock();
       setRows(data.map(d => ({ ...d, quantity: Number(d.quantity) })));
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [CAN_VIEW]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -146,6 +156,20 @@ const InventoryStock: React.FC = () => {
     qty <= min ? { text: "Low stock", color: "#f57c00" } :
                  { text: "Stock OK", color: "#2e7d32" };
 
+  if (!CAN_VIEW) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <Typography variant="h6">Inventory &gt; Stock</Typography>
+          <InventoryTabs />
+        </div>
+        <Paper className="p-4">
+          <Typography color="text.secondary">You don’t have permission to view Inventory.</Typography>
+        </Paper>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -162,11 +186,12 @@ const InventoryStock: React.FC = () => {
           </div>
           <Tooltip title="Refresh"><span><IconButton onClick={load} disabled={loading}><RefreshIcon/></IconButton></span></Tooltip>
 
-          {/* ✅ ONLY uploads a receipt (no quantity) */}
+          {/* Upload receipt available to users who can EDIT (adjust if you prefer CREATE) */}
           <Button
             variant="outlined"
             startIcon={<Inventory2OutlinedIcon />}
             onClick={()=>setUploadOpen(true)}
+            disabled={!CAN_EDIT}
           >
             Add stock receipt
           </Button>
@@ -205,14 +230,22 @@ const InventoryStock: React.FC = () => {
                     </span>
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Add stock">
-                      <IconButton size="small" onClick={()=>setRestockFor(r)}><AddIcon fontSize="small"/></IconButton>
+                    <Tooltip title={CAN_EDIT ? "Add stock" : "No permission"}>
+                      <span>
+                        <IconButton size="small" onClick={()=>CAN_EDIT && setRestockFor(r)} disabled={!CAN_EDIT}>
+                          <AddIcon fontSize="small"/>
+                        </IconButton>
+                      </span>
                     </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton size="small"><EditIcon fontSize="small"/></IconButton>
+                    <Tooltip title={CAN_EDIT ? "Edit" : "No permission"}>
+                      <span>
+                        <IconButton size="small" disabled={!CAN_EDIT}><EditIcon fontSize="small"/></IconButton>
+                      </span>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error"><DeleteOutlineIcon fontSize="small"/></IconButton>
+                    <Tooltip title={CAN_DELETE ? "Delete" : "No permission"}>
+                      <span>
+                        <IconButton size="small" color="error" disabled={!CAN_DELETE}><DeleteOutlineIcon fontSize="small"/></IconButton>
+                      </span>
                     </Tooltip>
                   </TableCell>
                 </TableRow>
@@ -243,6 +276,7 @@ const InventoryStock: React.FC = () => {
         onUpdated={(productId, newQty) => {
           setRows(prev => prev.map(r => r.id === productId ? { ...r, quantity: Number(newQty) } : r));
         }}
+        canEdit={CAN_EDIT}
       />
 
       {/* Upload a receipt only (top button) */}
@@ -250,14 +284,17 @@ const InventoryStock: React.FC = () => {
         open={uploadOpen}
         onClose={()=>setUploadOpen(false)}
         onUpload={async (label, file) => {
-          await uploadStockReceipt(label, file);   // ✅ /receipts
+          if (!CAN_EDIT) { setToast("You don't have permission to upload receipts."); return; }
+          await uploadStockReceipt(label, file);
           setUploadOpen(false);
           setToast("Receipt uploaded");
         }}
       />
 
       <Snackbar open={!!toast} autoHideDuration={2500} onClose={()=>setToast(null)}>
-        <Alert severity="success" onClose={()=>setToast(null)}>{toast}</Alert>
+        <Alert severity={toast?.toLowerCase().includes("permission") ? "error" : "success"} onClose={()=>setToast(null)}>
+          {toast}
+        </Alert>
       </Snackbar>
     </div>
   );

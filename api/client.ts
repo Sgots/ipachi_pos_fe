@@ -2,7 +2,7 @@
 import axios, { AxiosHeaders, RawAxiosRequestHeaders } from "axios";
 import { endpoints } from "./endpoints";
 
-// Resolve base URL: prefer Vite env, else dev-friendly localhost for Vite ports.
+// Resolve base URL
 const VITE_BASE: string | undefined =
   (typeof import.meta !== "undefined" && (import.meta as any)?.env?.VITE_API_BASE) || undefined;
 
@@ -40,12 +40,20 @@ export const setTerminalId = (terminalId: number | string | null | undefined) =>
   }
 };
 
-/** Request interceptor:
- * - Adds X-User-Id (required by BE) if present in localStorage
- * - Adds X-Terminal-Id (optional) if present in localStorage
- * - Adds Authorization for non-auth endpoints
- * - Never hardcodes values
- */
+export const setBusinessId = (businessId: number | string | null | undefined) => {
+  if (businessId === null || businessId === undefined || `${businessId}`.trim() === "") {
+    localStorage.removeItem("x.business.id");
+  } else {
+    localStorage.setItem("x.business.id", String(businessId));
+  }
+};
+
+// Small utility so we can read from multiple keys (new + legacy)
+const getLS = (k: string) => (typeof window !== "undefined" ? window.localStorage.getItem(k) : null);
+const firstNonEmpty = (...vals: (string | null | undefined)[]) =>
+  vals.find(v => v != null && v !== "null" && v !== "undefined" && `${v}`.trim() !== "");
+
+/** Request interceptor */
 client.interceptors.request.use((config) => {
   const abs = new URL(
     (config.url || ""),
@@ -58,10 +66,12 @@ client.interceptors.request.use((config) => {
 
   if (!config.headers) config.headers = new AxiosHeaders() as any;
 
-  // Attach required headers only if we actually have values stored
-  const userId = (typeof window !== "undefined" && window.localStorage.getItem("x.user.id")) || undefined;
-  const terminalId = (typeof window !== "undefined" && window.localStorage.getItem("x.terminal.id")) || undefined;
+  // Read headers (prefer new keys, fallback to legacy)
+  const userId = getLS("x.user.id");
+  const terminalId = firstNonEmpty(getLS("x.terminal.id"), getLS("activeTerminalId"));
+  const businessId = firstNonEmpty(getLS("x.business.id"), getLS("activeBusinessId"));
 
+  // X-User-Id
   if (userId && userId !== "undefined" && userId !== "null") {
     if (typeof (config.headers as any).set === "function") {
       (config.headers as any).set("X-User-Id", userId);
@@ -69,12 +79,10 @@ client.interceptors.request.use((config) => {
       (config.headers as RawAxiosRequestHeaders)["X-User-Id"] = userId;
     }
   } else if (!isPublicAuth) {
-    // Non-auth routes require X-User-Id. If missing, warn (helps during integration).
-    // The backend will still 400 this request; this warns devs in the console.
-    // eslint-disable-next-line no-console
     console.warn("[API] Missing X-User-Id for non-auth route:", path);
   }
 
+  // X-Terminal-Id
   if (terminalId && terminalId !== "undefined" && terminalId !== "null") {
     if (typeof (config.headers as any).set === "function") {
       (config.headers as any).set("X-Terminal-Id", terminalId);
@@ -83,15 +91,26 @@ client.interceptors.request.use((config) => {
     }
   }
 
-  // Authorization header only for non-public endpoints
+  // X-Business-Id (also set X-Business-ID for servers that use that casing)
+  if (businessId && businessId !== "undefined" && businessId !== "null") {
+    if (typeof (config.headers as any).set === "function") {
+      (config.headers as any).set("X-Business-Id", businessId);
+      (config.headers as any).set("X-Business-ID", businessId); // compatibility
+    } else {
+      (config.headers as RawAxiosRequestHeaders)["X-Business-Id"] = businessId as string;
+      (config.headers as RawAxiosRequestHeaders)["X-Business-ID"] = businessId as string; // compatibility
+    }
+  } else if (!isPublicAuth) {
+    console.warn("[API] Missing X-Business-Id for non-auth route:", path);
+  }
+
+  // Authorization
   if (!isPublicAuth) {
     let token = localStorage.getItem("auth.token");
     if (!token) {
       try {
         token = JSON.parse(localStorage.getItem("ipachi_user") || "{}").token;
-      } catch {
-        /* noop */
-      }
+      } catch { /* noop */ }
     }
     if (token && token !== "null" && token !== "undefined") {
       if (typeof (config.headers as any).set === "function") {
@@ -101,7 +120,6 @@ client.interceptors.request.use((config) => {
       }
     }
   } else {
-    // Make sure we don't leak a stale Authorization on public auth routes
     if (typeof (config.headers as any).delete === "function") {
       (config.headers as any).delete("Authorization");
     } else {
@@ -117,7 +135,6 @@ client.interceptors.response.use(
   (resp) => resp,
   (err) => {
     if (err?.response?.status === 400) {
-      // eslint-disable-next-line no-console
       console.error("[API 400]", {
         url: err.config?.url,
         method: err.config?.method,

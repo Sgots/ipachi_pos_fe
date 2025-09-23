@@ -1,200 +1,308 @@
+// src/pages/Suppliers.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box, Paper, Typography, TextField, Button, IconButton, Chip, Tooltip, Divider, Avatar
+  Box, Paper, Typography, TextField, InputAdornment,
+  Button, Menu, MenuItem, Chip, Table, TableHead, TableRow,
+  TableCell, TableBody
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
-import PhoneIcon from "@mui/icons-material/Phone";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import client from "../api/client";
-import { API } from "../api/endpoints";
-import type { Supplier } from "../types/supplier";
-import SupplierDialog from "../components/SupplierDialog";
-import ConfirmDialog from "../components/ConfirmDialog";
+import { useAuth } from "../auth/AuthContext"; // <<< permissions
 
-const avatarFromName = (name: string) => name
-  .split(" ")
-  .map((n) => n[0])
-  .join("")
-  .slice(0, 2)
-  .toUpperCase();
+type OutOfStockRow = {
+  id?: number;
+  sku: string;
+  barcode?: string;
+  name: string;
+  quantity: number;
+  measurement?: string;
+  status?: string;
+};
+
+type ApiResponse<T> = { code: string; message: string; data: T };
+
+function unwrapArray<T>(payload: any): T[] {
+  const p = payload;
+  if (Array.isArray(p)) return p;
+  if (Array.isArray(p?.data)) return p.data;
+  if (Array.isArray(p?.data?.content)) return p.data.content;
+  if (Array.isArray(p?.items)) return p.items;
+  if (Array.isArray(p?.products)) return p.products;
+  return [];
+}
+
+function toMatrix(rows: OutOfStockRow[]) {
+  const header = ["SKU", "Barcode", "Product name", "Quantity", "Measurement", "Status"];
+  const body = rows.map(r => [
+    r.sku ?? "",
+    r.barcode ?? "",
+    r.name ?? "",
+    r.quantity ?? 0,
+    r.measurement ?? "",
+    r.status ?? "Out of stock",
+  ]);
+  return { header, body };
+}
 
 const Suppliers: React.FC = () => {
-  const [items, setItems] = useState<Supplier[]>([]);
-  const [query, setQuery] = useState("");
+  const { can } = useAuth();
+  const CAN_VIEW = can("SUPPLIERS", "VIEW");
+
+  const [rows, setRows] = useState<OutOfStockRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const [openForm, setOpenForm] = useState<{ mode: "add" | "edit" | null; item?: Supplier }>({ mode: null });
-  const [confirm, setConfirm] = useState<{ open: boolean; item?: Supplier }>({ open: false });
+  const [q, setQ] = useState("");
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return rows;
+    return rows.filter(r =>
+      (r.sku ?? "").toLowerCase().includes(s) ||
+      (r.barcode ?? "").toLowerCase().includes(s) ||
+      (r.name ?? "").toLowerCase().includes(s)
+    );
+  }, [rows, q]);
 
-  const fetchItems = async () => {
+  // ensure header from localStorage
+  useEffect(() => {
+    const biz = localStorage.getItem("x.business.id");
+    if (biz) {
+      (client as any).defaults.headers.common["X-Business-Id"] = biz;
+    } else {
+      delete (client as any).defaults.headers.common["X-Business-Id"];
+    }
+  }, []);
+
+  const fetchData = async () => {
+    if (!CAN_VIEW) return; // guard
     setLoading(true);
+    setErr(null);
     try {
-      // If your backend doesn’t exist yet, you can return mock data when request fails
-      const { data } = await client.get<Supplier[]>(API.suppliers.base);
-      setItems(data);
-    } catch {
-      // mock fallback
-      setItems([
-        { id: 1, name: "Fresh Foods Ltd", contactName: "Nomsa D.", phone: "267 555 0101",
-          email: "orders@freshfoods.example", tags: ["Food"], status: "active", leadTimeDays: 3, balance: 1250.0, lastOrderAt: new Date().toISOString() },
-        { id: 2, name: "Bots Packaging", contactName: "John M.", phone: "267 555 0177",
-          email: "sales@botspackaging.example", tags: ["Packaging"], status: "active", leadTimeDays: 7, balance: 0 },
-        { id: 3, name: "CleanPro", contactName: "Naledi K.", phone: "267 555 0199",
-          email: "hello@cleanpro.example", tags: ["Cleaning"], status: "inactive", leadTimeDays: 5, balance: 400.5 },
-      ]);
+      const { data } = await client.get<ApiResponse<OutOfStockRow[]>>("/api/inventory/out-of-stock");
+      const arr = unwrapArray<OutOfStockRow>(data);
+      setRows(
+        arr.map(r => ({
+          ...r,
+          quantity: Number(r.quantity ?? 0),
+          status: r.status ?? "Out of stock",
+        }))
+      );
+    } catch (e: any) {
+      setErr(e?.response?.data?.message || e?.message || "Failed to load");
+      setRows([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [CAN_VIEW]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(i =>
-      (i.name ?? "").toLowerCase().includes(q) ||
-      (i.contactName ?? "").toLowerCase().includes(q) ||
-      (i.phone ?? "").toLowerCase().includes(q) ||
-      (i.email ?? "").toLowerCase().includes(q) ||
-      (i.tags ?? []).some(t => t.toLowerCase().includes(q))
-    );
-  }, [items, query]);
+  // ---------- Export / Share ----------
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const menuOpen = Boolean(anchorEl);
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>) => setAnchorEl(e.currentTarget);
+  const closeMenu = () => setAnchorEl(null);
 
-  const handleSave = async (payload: Partial<Supplier>, mode: "add" | "edit") => {
-    if (mode === "add") {
-      await client.post(API.suppliers.base, payload); // replace with your real endpoint
-    } else if (mode === "edit" && payload.id != null) {
-      await client.post(API.suppliers.base, payload); // replace with PUT /api/suppliers/:id
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExcel = async () => {
+    const { header, body } = toMatrix(filtered);
+    try {
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Out of stock");
+      const wbout = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      downloadBlob(
+        new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+        "suppliers-out-of-stock.xlsx"
+      );
+    } catch (e) {
+      console.error("xlsx export failed:", e);
+    } finally {
+      closeMenu();
     }
-    setOpenForm({ mode: null });
-    await fetchItems();
   };
 
-  const handleDelete = async (id?: number) => {
-    if (!id) return;
-    // replace with DELETE /api/suppliers/:id
-    setItems(prev => prev.filter(s => s.id !== id));
-    setConfirm({ open: false });
+  const exportPdf = async () => {
+    const { header, body } = toMatrix(filtered);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(14);
+      doc.text("Out of stock - Suppliers", 14, 16);
+      autoTable(doc, {
+        startY: 22,
+        head: [header],
+        body,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [22, 160, 133] },
+      });
+      doc.save("suppliers-out-of-stock.pdf");
+    } catch (e) {
+      console.error("pdf export failed:", e);
+    } finally {
+      closeMenu();
+    }
   };
+
+  const toCsvBlob = (rows: OutOfStockRow[]) => {
+    const { header, body } = toMatrix(rows);
+    const csv = [header.join(","), ...body.map(r => r.map(v => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(","))].join("\n");
+    return new Blob([csv], { type: "text/csv;charset=utf-8" });
+    };
+
+  const shareCsv = async () => {
+    try {
+      const blob = toCsvBlob(filtered);
+      const canShareFile =
+        (navigator as any).canShare &&
+        (navigator as any).canShare({
+          files: [new File([blob], "suppliers-out-of-stock.csv", { type: "text/csv" })],
+        });
+      if ((navigator as any).share && canShareFile) {
+        const file = new File([blob], "suppliers-out-of-stock.csv", { type: "text/csv" });
+        await (navigator as any).share({
+          title: "Out of stock - Suppliers",
+          text: "Export from Ipachi POS Portal",
+          files: [file],
+        });
+      } else {
+        downloadBlob(blob, "suppliers-out-of-stock.csv");
+      }
+    } catch (e) {
+      console.error("share failed:", e);
+    } finally {
+      closeMenu();
+    }
+  };
+
+  if (!CAN_VIEW) {
+    return (
+      <Box>
+        <Typography variant="h5" sx={{ mb: 2 }}>Suppliers</Typography>
+        <Paper sx={{ p: 2 }}>
+          <Typography color="text.secondary">
+            You don’t have permission to view Suppliers.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box>
-      <Typography variant="h5" className="mb-3">Suppliers</Typography>
+      <Typography variant="h5" sx={{ mb: 2 }}>Suppliers</Typography>
 
-      {/* Toolbar */}
-      <Paper className="p-3 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[260px]">
-            <TextField
-              fullWidth
-              placeholder="Search suppliers, contacts, tags…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon className="mr-2 opacity-60" />,
-              }}
-            />
-          </div>
-
-          <Tooltip title="Refresh">
-            <span><IconButton onClick={fetchItems} disabled={loading}><RefreshIcon /></IconButton></span>
-          </Tooltip>
-
-          <Button variant="outlined" startIcon={<Inventory2OutlinedIcon />}>
-            Purchase Orders
+      <Paper sx={{ p: 2, mb: 2, display: "flex", gap: 2, alignItems: "center", justifyContent: "space-between" }}>
+        <TextField
+          placeholder="Search product"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          size="small"
+          sx={{ flex: 1, maxWidth: 720 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <div>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={openMenu}
+            sx={{ textTransform: "uppercase", px: 2 }}
+          >
+            Export/Share
           </Button>
-
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenForm({ mode: "add" })}>
-            Add Supplier
-          </Button>
+          <Menu anchorEl={anchorEl} open={menuOpen} onClose={closeMenu}>
+            <MenuItem onClick={exportExcel}>Export to Excel (.xlsx)</MenuItem>
+            <MenuItem onClick={exportPdf}>Export to PDF</MenuItem>
+            <MenuItem onClick={shareCsv}>Share / Download CSV</MenuItem>
+          </Menu>
         </div>
       </Paper>
 
-      {/* Card grid */}
-      <div className="grid 2xl:grid-cols-3 lg:grid-cols-2 grid-cols-1 gap-4">
-        {filtered.map((s) => (
-          <Paper key={s.id} className="p-4 rounded-xl">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar>{avatarFromName(s.name)}</Avatar>
-                <div>
-                  <Typography variant="subtitle1" className="font-semibold leading-tight">{s.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {s.contactName || "—"}
+      <Paper sx={{ p: 0, overflowX: "auto" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>SKU</TableCell>
+              <TableCell>Barcode</TableCell>
+              <TableCell>Product name</TableCell>
+              <TableCell>Quantity</TableCell>
+              <TableCell>Measurement</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Typography color="text.secondary" variant="body2" sx={{ p: 2 }}>
+                    Loading…
                   </Typography>
-                </div>
-              </div>
-
-              <div className="flex gap-1">
-                <Tooltip title="Edit">
-                  <IconButton size="small" onClick={() => setOpenForm({ mode: "edit", item: s })}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete">
-                  <IconButton size="small" color="error" onClick={() => setConfirm({ open: true, item: s })}>
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </div>
-            </div>
-
-            <Divider className="my-2" />
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-sm">
-                <PhoneIcon fontSize="small" className="opacity-60" />
-                <span>{s.phone || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <MailOutlineIcon fontSize="small" className="opacity-60" />
-                <span>{s.email || "—"}</span>
-              </div>
-              <div className="col-span-2">
-                <Typography variant="caption" color="text.secondary">{s.address || "No address"}</Typography>
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Chip size="small" label={(s.status ?? "active").toUpperCase()} color={s.status === "inactive" ? "default" : "success"} variant="outlined" />
-              {typeof s.leadTimeDays === "number" && <Chip size="small" label={`Lead: ${s.leadTimeDays}d`} variant="outlined" />}
-              {typeof s.balance === "number" && <Chip size="small" label={`Balance: P${s.balance.toFixed(2)}`} variant="outlined" />}
-              {(s.tags ?? []).map(t => <Chip key={t} size="small" label={t} />)}
-            </div>
-          </Paper>
-        ))}
-
-        {!filtered.length && (
-          <Paper className="p-6 text-center text-gray-500">
-            {loading ? "Loading…" : "No suppliers match your search."}
-          </Paper>
-        )}
-      </div>
-
-      {/* Dialogs */}
-      <SupplierDialog
-        open={!!openForm.mode}
-        mode={openForm.mode ?? "add"}
-        initial={openForm.item}
-        onClose={() => setOpenForm({ mode: null })}
-        onSave={handleSave}
-      />
-
-      <ConfirmDialog
-        open={confirm.open}
-        title="Delete supplier?"
-        message={`This will remove “${confirm.item?.name}”. Update the endpoint to use DELETE to persist.`}
-        confirmText="Delete"
-        confirmColor="error"
-        onCancel={() => setConfirm({ open: false })}
-        onConfirm={() => handleDelete(confirm.item?.id)}
-      />
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && err && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Typography color="error" variant="body2" sx={{ p: 2 }}>
+                    {err}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && !err && filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Typography color="text.secondary" variant="body2" sx={{ p: 2 }}>
+                    No out of stock products.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && !err && filtered.map((r, i) => (
+              <TableRow key={`${r.sku}-${i}`} hover>
+                <TableCell>{r.sku}</TableCell>
+                <TableCell>{r.barcode || "-"}</TableCell>
+                <TableCell>{r.name}</TableCell>
+                <TableCell>{r.quantity}</TableCell>
+                <TableCell>{r.measurement || "unit"}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={r.status || "Out of stock"}
+                    color="error"
+                    variant="outlined"
+                    size="small"
+                    sx={{ color: "#c00", borderColor: "transparent", fontWeight: 600 }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
     </Box>
   );
 };
