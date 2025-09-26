@@ -1,0 +1,415 @@
+[2025-09-10 14:35:12] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-10 14:35:12] Installing dependencies and building the project...
+[2025-09-10 14:35:20] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/api/client.ts(5,16): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/api/client.ts(24,8): error TS2322: Type '{}' is not assignable to type 'AxiosRequestHeaders'.
+  Type '{}' is missing the following properties from type 'AxiosHeaders': set, get, has, delete, and 24 more.
+src/api/endpoints.ts(20,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/api/inventory.ts(15,45): error TS2339: Property 'receipts' does not exist on type '{ readonly categories: "/api/inventory/categories"; readonly measurements: "/api/inventory/measurements"; readonly products: "/api/inventory/products"; readonly components: (id: string | number) => string; readonly lookup: (sku: string) => string; }'.
+src/api/inventory.ts(16,45): error TS2339: Property 'stock' does not exist on type '{ readonly categories: "/api/inventory/categories"; readonly measurements: "/api/inventory/measurements"; readonly products: "/api/inventory/products"; readonly components: (id: string | number) => string; readonly lookup: (sku: string) => string; }'.
+src/api/inventory.ts(22,24): error TS2339: Property 'restock' does not exist on type '{ readonly categories: "/api/inventory/categories"; readonly measurements: "/api/inventory/measurements"; readonly products: "/api/inventory/products"; readonly components: (id: string | number) => string; readonly lookup: (sku: string) => string; }'.
+src/pages/InventoryProducts.tsx(273,9): error TS2322: Type 'ProductRow | undefined' is not assignable to type 'Partial<ProductDraft> | undefined'.
+  Type 'ProductRow' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'barcode' are incompatible.
+      Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/pages/InventoryProducts.tsx(307,31): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(307,53): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(307,72): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(307,96): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(340,39): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(340,61): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(340,80): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(340,104): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(360,33): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(360,55): error TS2339: Property 'unitName' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(360,74): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+src/pages/InventoryProducts.tsx(360,98): error TS2339: Property 'unitAbbr' does not exist on type 'ProductDTO'.
+[2025-09-10 14:48:03] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-10 14:48:03] Installing dependencies and building the project...
+[2025-09-10 14:48:11] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/auth/AuthContext.tsx(4,21): error TS2305: Module '"../api/endpoints"' has no exported member 'AuthResponse'.
+src/pages/RegisterWizard.tsx(8,21): error TS2305: Module '"../api/endpoints"' has no exported member 'AuthResponse'.
+src/pages/RegisterWizard.tsx(8,35): error TS2305: Module '"../api/endpoints"' has no exported member 'RegisterRequest'.
+src/pages/RegisterWizard.tsx(8,52): error TS2305: Module '"../api/endpoints"' has no exported member 'NewUserSetupRequest'.
+[2025-09-10 14:56:03] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-10 14:56:03] Installing dependencies and building the project...
+[2025-09-10 14:56:13] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/auth/AuthContext.tsx(25,28): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+[2025-09-10 15:04:33] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-10 15:04:33] Installing dependencies and building the project...
+[2025-09-10 15:04:49] Build completed successfully. Output directory: dist
+[2025-09-10 15:04:49] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-10 15:05:26] Files transferred successfully
+[2025-09-10 15:05:26] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-10 15:05:26] Error: SSH commands failed
+[2025-09-12 16:16:25] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 16:16:25] Installing dependencies and building the project...
+[2025-09-12 16:16:40] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/PromoDialog.tsx(148,11): error TS2322: Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; ... 8 more ...; imageFile?: File | ... 1 more ... | undefined; } | { ...; }' is not assignable to type 'Partial<ProductDraft>'.
+  Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; categoryId?: number | null | undefined; unitId?: number | null | undefined; ... 6 more ...; imageFile?: (File | null)...' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'components' are incompatible.
+      Type '{ name: string; measurement: number; unitCost: number; }[]' is not assignable to type 'IngredientLine[]'.
+        Property 'id' is missing in type '{ name: string; measurement: number; unitCost: number; }' but required in type 'IngredientLine'.
+src/pages/Discounts.tsx(188,9): error TS2322: Type '(payload: Partial<PromoCampaign>, mode: "add" | "edit") => Promise<void>' is not assignable to type '(p: Partial<ProductDraft>) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+[2025-09-12 17:02:27] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 17:02:28] Installing dependencies and building the project...
+[2025-09-12 17:02:38] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/PromoDialog.tsx(148,11): error TS2322: Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; ... 8 more ...; imageFile?: File | ... 1 more ... | undefined; } | { ...; }' is not assignable to type 'Partial<ProductDraft>'.
+  Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; categoryId?: number | null | undefined; unitId?: number | null | undefined; ... 6 more ...; imageFile?: (File | null)...' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'components' are incompatible.
+      Type '{ name: string; measurement: number; unitCost: number; }[]' is not assignable to type 'IngredientLine[]'.
+        Property 'id' is missing in type '{ name: string; measurement: number; unitCost: number; }' but required in type 'IngredientLine'.
+src/pages/Discounts.tsx(188,9): error TS2322: Type '(payload: Partial<PromoCampaign>, mode: "add" | "edit") => Promise<void>' is not assignable to type '(p: Partial<ProductDraft>) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+[2025-09-12 17:32:39] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 17:32:39] Installing dependencies and building the project...
+[2025-09-12 17:32:56] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/PromoDialog.tsx(148,11): error TS2322: Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; ... 8 more ...; imageFile?: File | ... 1 more ... | undefined; } | { ...; }' is not assignable to type 'Partial<ProductDraft>'.
+  Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; categoryId?: number | null | undefined; unitId?: number | null | undefined; ... 6 more ...; imageFile?: (File | null)...' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'components' are incompatible.
+      Type '{ name: string; measurement: number; unitCost: number; }[]' is not assignable to type 'IngredientLine[]'.
+        Property 'id' is missing in type '{ name: string; measurement: number; unitCost: number; }' but required in type 'IngredientLine'.
+src/pages/Discounts.tsx(188,9): error TS2322: Type '(payload: Partial<PromoCampaign>, mode: "add" | "edit") => Promise<void>' is not assignable to type '(p: Partial<ProductDraft>) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+[2025-09-12 17:37:14] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 17:37:15] Installing dependencies and building the project...
+[2025-09-12 17:37:28] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/PromoDialog.tsx(148,11): error TS2322: Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; ... 8 more ...; imageFile?: File | ... 1 more ... | undefined; } | { ...; }' is not assignable to type 'Partial<ProductDraft>'.
+  Type '{ buyPrice: number; components: { name: string; measurement: number; unitCost: number; }[]; id?: number | undefined; name?: string | undefined; sku?: string | undefined; barcode?: string | undefined; categoryId?: number | null | undefined; unitId?: number | null | undefined; ... 6 more ...; imageFile?: (File | null)...' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'components' are incompatible.
+      Type '{ name: string; measurement: number; unitCost: number; }[]' is not assignable to type 'IngredientLine[]'.
+        Property 'id' is missing in type '{ name: string; measurement: number; unitCost: number; }' but required in type 'IngredientLine'.
+src/pages/Discounts.tsx(185,7): error TS2322: Type '{ open: boolean; mode: "add" | "edit"; initial: PromoCampaign | undefined; onClose: () => void; onSave: (payload: Partial<ProductDraft>) => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { open: boolean; initial?: Partial<ProductDraft> | undefined; categories?: CategoryOpt[] | undefined; units?: UnitOpt[] | undefined; onClose: () => void; onSave: (p: Partial<...>) => void; }'.
+  Property 'mode' does not exist on type 'IntrinsicAttributes & { open: boolean; initial?: Partial<ProductDraft> | undefined; categories?: CategoryOpt[] | undefined; units?: UnitOpt[] | undefined; onClose: () => void; onSave: (p: Partial<...>) => void; }'.
+[2025-09-12 21:45:18] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 21:45:18] Installing dependencies and building the project...
+[2025-09-12 21:45:45] Build completed successfully. Output directory: dist
+[2025-09-12 21:45:45] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-12 21:46:04] Files transferred successfully
+[2025-09-12 21:46:04] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-12 21:46:05] Error: SSH commands failed
+[2025-09-12 23:24:45] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-12 23:24:45] Installing dependencies and building the project...
+[2025-09-12 23:25:17] Build completed successfully. Output directory: dist
+[2025-09-12 23:25:17] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-12 23:25:39] Files transferred successfully
+[2025-09-12 23:25:40] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-12 23:25:40] Error: SSH commands failed
+[2025-09-13 16:57:21] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-13 16:57:22] Installing dependencies and building the project...
+[2025-09-13 16:57:52] Build completed successfully. Output directory: dist
+[2025-09-13 16:57:52] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-13 16:58:30] Files transferred successfully
+[2025-09-13 16:58:30] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-13 16:58:31] Error: SSH commands failed
+[2025-09-14 16:28:24] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-14 16:28:24] Installing dependencies and building the project...
+[2025-09-14 16:29:16] Build completed successfully. Output directory: dist
+[2025-09-14 16:29:16] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-14 16:29:38] Error: SCP file transfer failed. Check scp.log for details.
+ssh: connect to host 159.223.202.97 port 22: Connection timed out
+scp: Connection closed
+[2025-09-14 16:30:49] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-14 16:30:49] Installing dependencies and building the project...
+[2025-09-14 16:31:21] Build completed successfully. Output directory: dist
+[2025-09-14 16:31:21] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-14 16:31:43] Error: SCP file transfer failed. Check scp.log for details.
+ssh: connect to host 159.223.202.97 port 22: Connection timed out
+scp: Connection closed
+[2025-09-14 16:32:31] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-14 16:32:31] Installing dependencies and building the project...
+[2025-09-14 16:33:03] Build completed successfully. Output directory: dist
+[2025-09-14 16:33:03] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-14 16:33:25] Error: SCP file transfer failed. Check scp.log for details.
+ssh: connect to host 159.223.202.97 port 22: Connection timed out
+scp: Connection closed
+[2025-09-14 16:33:43] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-14 16:33:43] Installing dependencies and building the project...
+[2025-09-14 16:34:31] Build completed successfully. Output directory: dist
+[2025-09-14 16:34:32] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-14 16:34:53] Error: SCP file transfer failed. Check scp.log for details.
+ssh: connect to host 159.223.202.97 port 22: Connection timed out
+scp: Connection closed
+[2025-09-18 21:27:32] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-18 21:27:32] Installing dependencies and building the project...
+[2025-09-18 21:27:56] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/api/tills.ts(10,8): error TS2307: Cannot find module '../types/till' or its corresponding type declarations.
+src/api/tills.ts(13,30): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(16,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(19,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(22,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(25,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(28,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(31,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(34,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/api/tills.ts(38,13): error TS2551: Property 'tills' does not exist on type '{ readonly auth: { readonly login: "/api/auth/login"; readonly register: "/api/auth/register"; readonly me: "/api/auth/me"; }; readonly user: { readonly setup: "/api/users/setup"; }; ... 6 more ...; readonly features: { ...; }; }'. Did you mean 'till'?
+src/components/TillSummaryCard.tsx(3,42): error TS2307: Cannot find module '../types/till' or its corresponding type declarations.
+src/pages/CashTill.tsx(35,47): error TS2307: Cannot find module '../types/till' or its corresponding type declarations.
+src/pages/CashTill.tsx(43,11): error TS2339: Property 'currentUser' does not exist on type 'AuthContextType'.
+src/pages/CashTill.tsx(43,24): error TS2339: Property 'terminalId' does not exist on type 'AuthContextType'.
+src/pages/CashTill.tsx(137,61): error TS2339: Property 'replace' does not exist on type '(id: string | number) => string'.
+src/pages/CashTill.tsx(626,15): error TS2322: Type '{ key: string; sku: string; name: string; price: number; stock: number; lowStock: number | undefined; img: string | undefined; onAdd: () => void; disabled: boolean; animateDelta: number; onQuantityChange: (delta: any) => void; }' is not assignable to type 'IntrinsicAttributes & Props'.
+  Property 'disabled' does not exist on type 'IntrinsicAttributes & Props'.
+src/pages/CashTill.tsx(628,34): error TS7006: Parameter 'delta' implicitly has an 'any' type.
+[2025-09-18 22:01:54] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-18 22:01:55] Installing dependencies and building the project...
+[2025-09-18 22:02:20] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/api/tills.ts(13,36): error TS2339: Property 'base' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(19,69): error TS2339: Property 'cashIn' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(19,108): error TS2339: Property 'cashIn' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(20,70): error TS2339: Property 'cashOut' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(20,110): error TS2339: Property 'cashOut' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(21,67): error TS2339: Property 'recordSale' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(21,110): error TS2339: Property 'recordSale' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(22,69): error TS2339: Property 'refund' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(22,108): error TS2339: Property 'refund' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/components/TillSummaryCard.tsx(17,52): error TS2339: Property 'openingFloat' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(18,44): error TS2339: Property 'sales' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(19,46): error TS2339: Property 'refunds' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(22,46): error TS2339: Property 'payouts' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(24,19): error TS2339: Property 'closingCashActual' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(26,58): error TS2339: Property 'closingCashActual' does not exist on type 'TillSummary'.
+src/components/TillSummaryCard.tsx(27,52): error TS2339: Property 'overShort' does not exist on type 'TillSummary'.
+src/pages/CashTill.tsx(43,11): error TS2339: Property 'currentUser' does not exist on type 'AuthContextType'.
+src/pages/CashTill.tsx(43,24): error TS2339: Property 'terminalId' does not exist on type 'AuthContextType'.
+src/pages/CashTill.tsx(142,32): error TS2339: Property 'base' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+[2025-09-18 22:13:25] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-18 22:13:25] Installing dependencies and building the project...
+[2025-09-18 22:13:43] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/api/tills.ts(13,36): error TS2339: Property 'base' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(34,21): error TS2339: Property 'replace' does not exist on type 'never'.
+src/api/tills.ts(44,21): error TS2339: Property 'replace' does not exist on type 'never'.
+src/api/tills.ts(49,36): error TS2339: Property 'cashIn' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(59,36): error TS2339: Property 'cashOut' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(69,36): error TS2339: Property 'recordSale' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/api/tills.ts(79,36): error TS2339: Property 'refund' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+src/auth/AuthContext.tsx(47,18): error TS2339: Property 'id' does not exist on type 'AuthResponse'.
+src/components/TillSummaryCard.tsx(116,14): error TS2304: Cannot find name 'Divider'.
+src/pages/CashTill.tsx(142,32): error TS2339: Property 'base' does not exist on type '{ readonly checkout: "/api/cash-till/checkout"; readonly active: "/api/tills/active"; readonly open: "/api/tills/open"; readonly close: (id: string | number) => string; readonly summary: (id: string | number) => string; }'.
+[2025-09-18 22:19:07] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-18 22:19:07] Installing dependencies and building the project...
+[2025-09-18 22:19:27] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/auth/AuthContext.tsx(47,18): error TS2339: Property 'id' does not exist on type 'AuthResponse'.
+src/components/TillSummaryCard.tsx(116,14): error TS2304: Cannot find name 'Divider'.
+[2025-09-18 22:21:53] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-18 22:21:53] Installing dependencies and building the project...
+[2025-09-18 22:22:22] Build completed successfully. Output directory: dist
+[2025-09-18 22:22:23] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-18 22:22:41] Files transferred successfully
+[2025-09-18 22:22:41] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-18 22:22:41] Error: SSH commands failed
+[2025-09-19 17:55:24] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-19 17:55:24] Installing dependencies and building the project...
+[2025-09-19 17:55:44] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/Account.tsx(304,9): error TS2322: Type '(progressEvent: ProgressEvent) => void' is not assignable to type '(progressEvent: AxiosProgressEvent) => void'.
+  Types of parameters 'progressEvent' and 'progressEvent' are incompatible.
+    Type 'AxiosProgressEvent' is missing the following properties from type 'ProgressEvent<EventTarget>': target, bubbles, cancelBubble, cancelable, and 18 more.
+src/pages/Account.tsx(377,51): error TS2339: Property 'email' does not exist on type 'User'.
+src/pages/Account.tsx(377,64): error TS2339: Property 'email' does not exist on type 'User'.
+[2025-09-19 17:59:41] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-19 17:59:42] Installing dependencies and building the project...
+[2025-09-19 17:59:58] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/Account.tsx(23,3): error TS2305: Module '"@mui/material"' has no exported member 'Upload'.
+src/pages/Account.tsx(353,29): error TS2339: Property 'email' does not exist on type 'User'.
+[2025-09-19 18:17:24] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-19 18:17:25] Installing dependencies and building the project...
+[2025-09-19 18:17:57] Build completed successfully. Output directory: dist
+[2025-09-19 18:17:58] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-19 18:18:16] Files transferred successfully
+[2025-09-19 18:18:16] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-19 18:18:16] Error: SSH commands failed
+[2025-09-20 02:51:04] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-20 02:51:04] Installing dependencies and building the project...
+[2025-09-20 02:51:22] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/CashTill.tsx(43,11): error TS2339: Property 'currentUser' does not exist on type 'AuthContextType'.
+src/pages/CashTill.tsx(43,24): error TS2339: Property 'terminalId' does not exist on type 'AuthContextType'.
+[2025-09-20 02:54:42] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-20 02:54:43] Installing dependencies and building the project...
+[2025-09-20 02:55:01] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/CashTill.tsx(71,54): error TS2339: Property 'replace' does not exist on type 'string | number'.
+  Property 'replace' does not exist on type 'number'.
+src/pages/CashTill.tsx(566,35): error TS2339: Property 'replace' does not exist on type 'string | number'.
+  Property 'replace' does not exist on type 'number'.
+[2025-09-20 03:05:14] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-20 03:05:14] Installing dependencies and building the project...
+[2025-09-20 03:06:15] Build completed successfully. Output directory: dist
+[2025-09-20 03:06:15] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-20 03:06:35] Files transferred successfully
+[2025-09-20 03:06:36] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-20 03:06:36] Error: SSH commands failed
+[2025-09-20 13:01:19] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-20 13:01:19] Installing dependencies and building the project...
+[2025-09-20 13:02:04] Build completed successfully. Output directory: dist
+[2025-09-20 13:02:04] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-20 13:03:33] Files transferred successfully
+[2025-09-20 13:03:33] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-20 13:03:34] Error: SSH commands failed
+[2025-09-21 01:40:48] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 01:40:48] Installing dependencies and building the project...
+[2025-09-21 01:41:04] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/AddRoleDialog.tsx(21,74): error TS2307: Cannot find module '../../api/roles' or its corresponding type declarations.
+src/pages/StaffManagement.tsx(154,24): error TS2339: Property 'data' does not exist on type 'Staff[]'.
+src/pages/StaffManagement.tsx(159,24): error TS2339: Property 'data' does not exist on type 'Role[]'.
+src/pages/StaffManagement.tsx(164,28): error TS2339: Property 'data' does not exist on type 'Location[]'.
+src/pages/StaffManagement.tsx(283,30): error TS2339: Property 'data' does not exist on type 'Role'.
+[2025-09-21 02:06:01] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 02:06:01] Installing dependencies and building the project...
+[2025-09-21 02:06:11] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/StaffManagement.tsx(411,71): error TS2322: Type 'number' is not assignable to type 'string'.
+src/pages/StaffManagement.tsx(419,74): error TS2322: Type 'number' is not assignable to type 'string'.
+[2025-09-21 02:10:59] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 02:10:59] Installing dependencies and building the project...
+[2025-09-21 02:11:23] Build completed successfully. Output directory: dist
+[2025-09-21 02:11:23] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-21 02:12:02] Files transferred successfully
+[2025-09-21 02:12:02] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-21 02:12:02] Error: SSH commands failed
+[2025-09-21 20:06:37] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 20:06:37] Installing dependencies and building the project...
+[2025-09-21 20:06:57] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/NavBar.tsx(17,33): error TS1261: Already included file name 'C:/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal/src/hooks/useBusinessLogo.ts' differs from file name 'C:/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal/src/hooks/UseBusinessLogo.ts' only in casing.
+  The file is in the program because:
+    Imported via "../hooks/useBusinessLogo" from file 'C:/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal/src/components/NavBar.tsx'
+    Imported via "../hooks/useBusinessLogo" from file 'C:/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal/src/components/Sidebar.tsx'
+    Matched by include pattern 'src' in 'C:/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal/tsconfig.json'
+src/components/ProductDialog.tsx(70,5): error TS2322: Type 'string' is not assignable to type 'number'.
+src/components/ProductDialog.tsx(84,7): error TS2322: Type 'string' is not assignable to type 'number'.
+src/components/ProductDialog.tsx(335,51): error TS2322: Type 'string' is not assignable to type 'number'.
+src/components/ProductDialog.tsx(386,38): error TS2322: Type 'string | number' is not assignable to type 'number | null | undefined'.
+  Type 'string' is not assignable to type 'number'.
+[2025-09-21 20:13:55] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 20:13:55] Installing dependencies and building the project...
+[2025-09-21 20:14:04] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/ProductDialog.tsx(34,13): error TS2304: Cannot find name 'NumOrEmpty'.
+src/components/ProductDialog.tsx(35,14): error TS2304: Cannot find name 'NumOrEmpty'.
+src/components/ProductDialog.tsx(36,13): error TS2304: Cannot find name 'NumOrEmpty'.
+src/components/ProductDialog.tsx(37,13): error TS2304: Cannot find name 'NumOrEmpty'.
+src/components/ProductDialog.tsx(392,38): error TS2322: Type 'string | number' is not assignable to type 'number | null | undefined'.
+  Type 'string' is not assignable to type 'number'.
+[2025-09-21 20:24:15] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-21 20:24:15] Installing dependencies and building the project...
+[2025-09-21 20:24:40] Build completed successfully. Output directory: dist
+[2025-09-21 20:24:40] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-21 20:25:06] Files transferred successfully
+[2025-09-21 20:25:06] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-21 20:25:07] Error: SSH commands failed
+[2025-09-22 11:49:23] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-22 11:49:23] Installing dependencies and building the project...
+[2025-09-22 11:49:59] Build completed successfully. Output directory: dist
+[2025-09-22 11:49:59] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-22 11:50:26] Files transferred successfully
+[2025-09-22 11:50:26] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-22 11:50:26] Error: SSH commands failed
+[2025-09-24 01:51:09] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-24 01:51:10] Installing dependencies and building the project...
+[2025-09-24 01:51:26] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/auth/AuthContext.tsx(268,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Action'.
+src/pages/Customers.tsx(14,23): error TS2304: Cannot find name 'client'.
+src/pages/Customers.tsx(21,23): error TS2304: Cannot find name 'client'.
+src/pages/Customers.tsx(26,11): error TS2304: Cannot find name 'client'.
+[2025-09-24 01:57:32] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-24 01:57:32] Installing dependencies and building the project...
+[2025-09-24 01:57:56] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/auth/AuthContext.tsx(268,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Action'.
+src/pages/Customers.tsx(104,15): error TS2774: This condition will always return true since this function is always defined. Did you mean to call it instead?
+[2025-09-24 02:02:49] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-24 02:02:49] Installing dependencies and building the project...
+[2025-09-24 02:03:22] Build completed successfully. Output directory: dist
+[2025-09-24 02:03:22] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-24 02:04:11] Files transferred successfully
+[2025-09-24 02:04:11] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-24 02:04:11] Error: SSH commands failed
+[2025-09-25 01:44:38] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-25 01:44:39] Installing dependencies and building the project...
+[2025-09-25 01:45:10] Build completed successfully. Output directory: dist
+[2025-09-25 01:45:10] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-25 01:45:37] Files transferred successfully
+[2025-09-25 01:45:37] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-25 01:45:37] Error: SSH commands failed
