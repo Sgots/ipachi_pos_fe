@@ -15,10 +15,52 @@ type ReportType = "Comprehensive" | "Cash Up" | "Trade Account Statement";
 const COLORS = ["#2f7ae5", "#ef6c00", "#6d28d9", "#10b981", "#9ca3af", "#f59e0b", "#ef4444"];
 const brand = { dark: "#0c5b4a", pale: "#e7f3ec" };
 
-type ApiResponse<T> = { code: string; message: string; data: T };
+type ApiResponse<T> = { code: number | string; message: string; data: T };
 
 const toIsoStart = (d: string) => new Date(d + "T00:00:00").toISOString();
 const toIsoEnd = (d: string) => new Date(d + "T23:59:59").toISOString();
+
+// === Month helpers for MoM drivers ===
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const monthRange = (dateStr: string) => {
+  const d = new Date(dateStr + "T00:00:00");
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: toIsoStart(ymd(start)), end: toIsoEnd(ymd(end)) };
+};
+
+const prevMonthRange = (dateStr: string) => {
+  const d = new Date(dateStr + "T00:00:00");
+  const start = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  const end = new Date(d.getFullYear(), d.getMonth(), 0);
+  return { start: toIsoStart(ymd(start)), end: toIsoEnd(ymd(end)) };
+};
+
+const joinWithAnd = (xs: string[]) =>
+  xs.length <= 1 ? (xs[0] ?? "") : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+
+// === Formatting helpers (display numbers exactly; currency -> 2dp) ===
+const fmtMoney = (n: number | string | null | undefined) =>
+  new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .format(Number(n ?? 0));
+
+const toFixed2 = (n: number | string | null | undefined) =>
+  (Number(n ?? 0)).toFixed(2); // for CSV (no locale separators)
+
+// === Chart formatters (axes/tooltips/labels to 2dp for currency) ===
+const fmt2 = (n: number | string | null | undefined) => (Number(n ?? 0)).toFixed(2);
+const money2 = (n: number | string | null | undefined) => `BWP ${fmt2(n)}`;
+const yTickMoney = (value: any) => fmt2(value);
+const tipMoney =
+  (name: string) =>
+  (value: any) =>
+    [money2(value), name]; // [valueText, nameText]
+
+// Cash-Up types
+type CashRow = { name: string; sku: string; buyingCash: number; profit: number; effectiveTotal: number };
+type CashTotals = { totalBuyingCash: number; totalProfit: number; cashBalance: number };
 
 const Reports: React.FC = () => {
   const { can } = useAuth();
@@ -60,10 +102,14 @@ const Reports: React.FC = () => {
   const [bestThree, setBestThree] = useState<any[]>([]);
   const [profitByCategory, setProfitByCategory] = useState<any[]>([]);
   const [salesByLocation, setSalesByLocation] = useState<any[]>([]);
-  const [cashRows, setCashRows] = useState<any[]>([]);
-  const [cashTotals, setCashTotals] = useState<any>({ totalCash: 0, totalProfit: 0, cashBalance: 0 });
+  const [cashRows, setCashRows] = useState<CashRow[]>([]);
+  const [cashTotals, setCashTotals] = useState<CashTotals>({ totalBuyingCash: 0, totalProfit: 0, cashBalance: 0 });
   const [ta, setTA] = useState<any>({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
   const [errNote, setErrNote] = useState<string>("");
+
+  // NEW: product totals for current month vs previous month (for MoM drivers)
+  const [currMonthByProduct, setCurrMonthByProduct] = useState<any[]>([]);
+  const [prevMonthByProduct, setPrevMonthByProduct] = useState<any[]>([]);
 
   const params = useMemo(() => ({ start: toIsoStart(start), end: toIsoEnd(end) }), [start, end]);
   const arr = (x: unknown) => (Array.isArray(x) ? x : []);
@@ -73,7 +119,9 @@ const Reports: React.FC = () => {
       setErrNote("You don't have permission to view Reports.");
       setKpis({ customersServed: 0, totalSales: 0, overallProfit: 0, topProduct: "-" });
       setSalesByProduct([]); setSalesTrend([]); setBestThree([]); setProfitByCategory([]); setSalesByLocation([]);
-      setCashRows([]); setCashTotals({ totalCash: 0, totalProfit: 0, cashBalance: 0 }); setTA({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+      setCashRows([]); setCashTotals({ totalBuyingCash: 0, totalProfit: 0, cashBalance: 0 });
+      setTA({ sales: 0, openingStock: 0, newStock: 0, closingStock: 0, costOfSales: 0, grossPL: 0 });
+      setCurrMonthByProduct([]); setPrevMonthByProduct([]);
       return;
     }
 
@@ -87,39 +135,67 @@ const Reports: React.FC = () => {
       const { data: dash } = await client.get<ApiResponse<any>>("/api/reports/dashboard", { params });
       setKpis(dash.data ?? { customersServed: 0, totalSales: 0, overallProfit: 0, topProduct: "-" });
 
+      // NEW: month windows (based on End Date)
+      const { start: cmStart, end: cmEnd } = monthRange(end);
+      const { start: pmStart, end: pmEnd } = prevMonthRange(end);
+
       const [
         { data: sbp },
         { data: trend },
         { data: top3 },
         { data: cat },
         { data: loc },
+        { data: curMonth },
+        { data: prevMonth },
       ] = await Promise.all([
         client.get<ApiResponse<any[]>>("/api/reports/sales-by-product", { params }),
         client.get<ApiResponse<any[]>>("/api/reports/monthly-trend", { params }),
         client.get<ApiResponse<any[]>>("/api/reports/best-performers", { params: { ...params, top: 3 } }),
         client.get<ApiResponse<any[]>>("/api/reports/profit-by-category", { params }),
         client.get<ApiResponse<any[]>>("/api/reports/sales-by-location", { params }),
+        // MoM slices
+        client.get<ApiResponse<any[]>>("/api/reports/sales-by-product", { params: { start: cmStart, end: cmEnd } }),
+        client.get<ApiResponse<any[]>>("/api/reports/sales-by-product", { params: { start: pmStart, end: pmEnd } }),
       ]);
 
+      // Keep values as returned; only coerce to Number for charts where needed
       setSalesByProduct(arr(sbp?.data).map((r: any) => ({ name: r.name, value: Number(r.total) })));
       setSalesTrend(arr(trend?.data).map((r: any) => ({ month: r.period, value: Number(r.total) })));
       setBestThree(arr(top3?.data).map((r: any) => ({ name: r.name, value: Number(r.total) })));
       setProfitByCategory(arr(cat?.data).map((r: any) => ({ name: r.category, value: Number(r.profit) })));
       setSalesByLocation(arr(loc?.data).map((r: any) => ({ name: r.location, value: Number(r.total) })));
 
+      // NEW: raw per-product for MoM drivers
+      setCurrMonthByProduct(arr(curMonth?.data).map((r: any) => ({
+        sku: r.sku, name: r.name, total: Number(r.total ?? 0),
+      })));
+      setPrevMonthByProduct(arr(prevMonth?.data).map((r: any) => ({
+        sku: r.sku, name: r.name, total: Number(r.total ?? 0),
+      })));
+
       if (reportType === "Cash Up") {
         const { data } = await client.get<ApiResponse<any>>("/api/reports/cashup", { params });
-        setCashRows(arr(data?.data?.rows).map((r: any) => ({
-          product: r.product, cash: Number(r.cash), profit: Number(r.profit),
+
+        const rows = Array.isArray(data?.data?.rows) ? data.data.rows : [];
+        const totals = data?.data?.totals ?? {};
+
+        // Store numeric for charts/math but display with fmtMoney
+        setCashRows(rows.map((r: any) => ({
+          name: r.name,
+          sku: r.sku,
+          buyingCash: Number(r.buyingCash ?? 0),
+          profit: Number(r.profit ?? 0),
+          effectiveTotal: Number(r.effectiveTotal ?? 0),
         })));
+
         setCashTotals({
-          totalCash: Number(data?.data?.totals?.totalCash ?? 0),
-          totalProfit: Number(data?.data?.totals?.totalProfit ?? 0),
-          cashBalance: Number(data?.data?.totals?.cashBalance ?? 0),
+          totalBuyingCash: Number(totals.totalBuyingCash ?? 0),
+          totalProfit: Number(totals.totalProfit ?? 0),
+          cashBalance: Number(totals.cashBalance ?? 0),
         });
       } else {
         setCashRows([]);
-        setCashTotals({ totalCash: 0, totalProfit: 0, cashBalance: 0 });
+        setCashTotals({ totalBuyingCash: 0, totalProfit: 0, cashBalance: 0 });
       }
 
       if (reportType === "Trade Account Statement") {
@@ -146,49 +222,140 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportType, params.start, params.end, bizId, CAN_VIEW_REPORTS]);
 
   const comments = useMemo(() => {
-    const grossMargin = kpis.totalSales ? (100 * (kpis.overallProfit / kpis.totalSales)).toFixed(1) + "%" : "-";
-    return [
-      { text: `Business made a Gross ${kpis.overallProfit >= 0 ? "Profit" : "Loss"} of BWP ${Math.abs(kpis.overallProfit).toLocaleString()}` },
-      { text: `Best performing product: ${kpis.topProduct}` },
-      { text: `Gross Margin is ${grossMargin}` },
-    ];
-  }, [kpis]);
+    // ---- Gross margin from KPIs
+    const grossMarginPct = Number(kpis.totalSales)
+      ? (100 * (Number(kpis.overallProfit) / Number(kpis.totalSales)))
+      : null;
+
+    // ---- Best / least performer + contribution %
+    const totalByProducts = salesByProduct.reduce((acc: number, r: any) => acc + Number(r?.value ?? 0), 0);
+    const best = salesByProduct.reduce((a: any, b: any) => (Number(b?.value ?? 0) > Number(a?.value ?? 0) ? b : a), null as any);
+    const least = salesByProduct.reduce((a: any, b: any) => (a == null || Number(b?.value ?? 0) < Number(a?.value ?? 0) ? b : a), null as any);
+    const bestPct = totalByProducts > 0 && best ? (100 * Number(best.value) / totalByProducts) : null;
+
+    // ---- MoM (use monthly product slices)
+    let momLine: string | null = null;
+    if (prevMonthByProduct.length || currMonthByProduct.length) {
+      const prevTotal = prevMonthByProduct.reduce((s, r) => s + Number(r.total ?? 0), 0);
+      const currTotal = currMonthByProduct.reduce((s, r) => s + Number(r.total ?? 0), 0);
+
+      if (prevTotal > 0) {
+        const deltaTotal = currTotal - prevTotal;
+        const pct = (deltaTotal / prevTotal) * 100;
+
+        // per-product deltas (union by SKU/name key)
+        const asMap = (rows: any[]) => {
+          const m = new Map<string, { name: string; total: number }>();
+          rows.forEach(r => m.set(String(r.sku ?? r.name).toLowerCase(), { name: r.name, total: Number(r.total ?? 0) }));
+          return m;
+        };
+        const curM = asMap(currMonthByProduct);
+        const preM = asMap(prevMonthByProduct);
+
+        const keys = new Set<string>([...curM.keys(), ...preM.keys()]);
+        const deltas: { name: string; delta: number }[] = [];
+        keys.forEach(k => {
+          const c = curM.get(k)?.total ?? 0;
+          const p = preM.get(k)?.total ?? 0;
+          deltas.push({ name: curM.get(k)?.name ?? preM.get(k)?.name ?? "", delta: c - p });
+        });
+
+        // choose drivers in the same direction as the total change
+        const directionPositive = deltaTotal >= 0;
+        const drivers = deltas
+          .filter(d => directionPositive ? d.delta > 0 : d.delta < 0)
+          .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+          .slice(0, 2)
+          .map(d => d.name)
+          .filter(Boolean);
+
+        const driversText = drivers.length ? `, driven mainly by ${joinWithAnd(drivers)}` : "";
+        momLine = `Sales ${directionPositive ? "increased" : "declined"} by ${Math.abs(pct).toFixed(0)}% compared to the previous month${driversText}.`;
+      }
+    }
+
+    // ---- Stock turnover (available when Trade Account Statement was loaded)
+    let turnoverText: string | null = null;
+      const opening = Number(ta.openingStock ?? 0);
+      const closing = Number(ta.closingStock ?? 0);
+      const cogs = Number(ta.costOfSales ?? 0);
+      const avgInv = (opening + closing) / 2;
+      if (avgInv > 0) {
+        const turns = cogs / avgInv;
+        turnoverText = `Stock turnover is ${turns.toFixed(2)} times`;
+
+    }
+
+    // Build comments list (skip nulls)
+    const list: { text: string }[] = [];
+
+    if (momLine) list.push({ text: momLine });
+
+    list.push({
+      text: `Business made a Gross ${Number(kpis.overallProfit) >= 0 ? "Profit" : "Loss"} of BWP ${fmtMoney(Math.abs(Number(kpis.overallProfit)))}`,
+    });
+
+    if (best && bestPct != null) {
+      list.push({ text: `${best.name} is the best performer, contributing ${Math.round(bestPct)}% of total sales.` });
+    } else {
+      if (kpis.topProduct) list.push({ text: `Best performing product: ${kpis.topProduct}` });
+    }
+
+    if (least) {
+      list.push({ text: `${least.name} is the least contributor to total sales and may require your attention` });
+    }
+
+    list.push({
+      text: `Gross Margin is ${grossMarginPct != null ? `${Math.round(grossMarginPct)}%` : "-"}`,
+    });
+
+    if (turnoverText) list.push({ text: turnoverText });
+
+    return list;
+  }, [kpis, salesByProduct, currMonthByProduct, prevMonthByProduct, ta, reportType]);
 
   const exportCSV = () => {
     if (!CAN_VIEW_REPORTS) return;
     const rows: string[] = [];
     rows.push("Section,Metric,Value");
-    rows.push(`KPIs,Customers Served,${kpis.customersServed}`);
-    rows.push(`KPIs,Total Sales,${kpis.totalSales}`);
-    rows.push(`KPIs,Overall Profit,${kpis.overallProfit}`);
+    rows.push(`KPIs,Customers Served,${kpis.customersServed}`); // count as-is
+    rows.push(`KPIs,Total Sales,BWP ${toFixed2(kpis.totalSales)}`); // currency 2dp
+    rows.push(`KPIs,Overall Profit,BWP ${toFixed2(kpis.overallProfit)}`); // currency 2dp
     rows.push(`KPIs,Top Product,${kpis.topProduct}`);
     rows.push("");
     rows.push("Sales by Product,Item,BWP");
-    salesByProduct.forEach(r => rows.push(`Sales by Product,${r.name},${r.value}`));
+    salesByProduct.forEach(r => rows.push(`Sales by Product,${r.name},${toFixed2(r.value)}`)); // currency 2dp
     rows.push("");
     rows.push("Sales Trend,Month,BWP");
-    salesTrend.forEach(r => rows.push(`Sales Trend,${r.month},${r.value}`));
+    salesTrend.forEach(r => rows.push(`Sales Trend,${r.month},${toFixed2(r.value)}`)); // currency 2dp
     rows.push("");
     rows.push("Profit by Category,Category,BWP");
-    profitByCategory.forEach(r => rows.push(`Profit by Category,${r.name},${r.value}`));
+    profitByCategory.forEach(r => rows.push(`Profit by Category,${r.name},${toFixed2(r.value)}`)); // currency 2dp
     rows.push("");
     rows.push("Sales by Location,Location,BWP");
-    salesByLocation.forEach(r => rows.push(`Sales by Location,${r.name},${r.value}`));
+    salesByLocation.forEach(r => rows.push(`Sales by Location,${r.name},${toFixed2(r.value)}`)); // currency 2dp
+
     if (reportType === "Cash Up") {
       rows.push("");
-      rows.push("Cash-Up Report,Product,Cash,Profit");
-      cashRows.forEach(r => rows.push(`Cash-Up Report,${r.product},${r.cash},${r.profit}`));
-      rows.push(`Cash-Up Totals,Total Cash,${cashTotals.totalCash}`);
-      rows.push(`Cash-Up Totals,Total Profit,${cashTotals.totalProfit}`);
-      rows.push(`Cash-Up Totals,Cash Balance,${cashTotals.cashBalance}`);
+      rows.push("Cash-Up Report,Product,SKU,Buying Cash,Profit,Effective Total");
+      cashRows.forEach(r =>
+        rows.push(`Cash-Up Report,${r.name},${r.sku},${toFixed2(r.buyingCash)},${toFixed2(r.profit)},${toFixed2(r.effectiveTotal)}`)
+      );
+      rows.push(`Cash-Up Totals,Total Buying Cash,,${toFixed2(cashTotals.totalBuyingCash)}`);
+      rows.push(`Cash-Up Totals,Total Profit,,${toFixed2(cashTotals.totalProfit)}`);
+      rows.push(`Cash-Up Totals,Cash Balance,,${toFixed2(cashTotals.cashBalance)}`);
     }
+
     if (reportType === "Trade Account Statement") {
       rows.push("");
       rows.push("Trade Account Statement,Metric,Value");
-      Object.entries(ta).forEach(([k, v]) => rows.push(`Trade Account Statement,${k},${v}`));
+      Object.entries(ta).forEach(([k, v]) =>
+        rows.push(`Trade Account Statement,${k},${toFixed2(v as any)}`) // currency-like metrics -> 2dp
+      );
     }
     const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -298,16 +465,16 @@ const Reports: React.FC = () => {
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
         <Grid container spacing={2} alignItems="center">
           {[
-            { label: "Customers Served", value: Number(kpis.customersServed || 0).toLocaleString(), unit: "" },
-            { label: "Total Sales", value: Number(kpis.totalSales || 0).toLocaleString(), unit: "BWP" },
-            { label: "Overall Profit", value: Number(kpis.overallProfit || 0).toLocaleString(), unit: "BWP" },
-            { label: "Top Selling Product", value: kpis.topProduct, unit: "" },
+            { label: "Customers Served", value: Number(kpis.customersServed ?? 0).toLocaleString(), unit: "" }, // count as-is
+            { label: "Total Sales", value: `BWP ${fmtMoney(kpis.totalSales)}`, unit: "" }, // currency 2dp
+            { label: "Overall Profit", value: `BWP ${fmtMoney(kpis.overallProfit)}`, unit: "" }, // currency 2dp
+            { label: "Top Selling Product", value: kpis.topProduct ?? "-", unit: "" },
           ].map((kpi, index) => (
             <Grid item xs={12} md={3} key={index}>
               <Box sx={{ p: 2, bgcolor: brand.pale, borderRadius: 2, textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{kpi.label}</Typography>
                 <Typography variant="h6" sx={{ fontWeight: 800, color: brand.dark, mt: 0.5 }}>
-                  {kpi.unit ? `${kpi.unit} ${kpi.value}` : kpi.value}
+                  {kpi.value}
                 </Typography>
               </Box>
             </Grid>
@@ -337,10 +504,11 @@ const Reports: React.FC = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis
+                  tickFormatter={yTickMoney}
                   label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip />
+                <Tooltip formatter={tipMoney("Sales")} />
                 <Legend verticalAlign="bottom" height={36} />
                 <Bar dataKey="value" fill={COLORS[0]} name="Sales" maxBarSize={64} />
               </BarChart>
@@ -367,10 +535,11 @@ const Reports: React.FC = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis
+                  tickFormatter={yTickMoney}
                   label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip />
+                <Tooltip formatter={tipMoney("Sales Trend")} />
                 <Legend verticalAlign="bottom" height={36} />
                 <Line
                   type="monotone"
@@ -388,6 +557,7 @@ const Reports: React.FC = () => {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={4}>
+          {/* Best 3 Performers */}
           <Paper sx={{ p: 2, height: 360, borderRadius: 2, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700, color: brand.dark }}>
               Best 3 Performers
@@ -399,13 +569,14 @@ const Reports: React.FC = () => {
                   dataKey="value"
                   nameKey="name"
                   outerRadius={100}
-                  label={{ fontSize: 12 }}
+                  label={false}
+                  labelLine={false}
                 >
                   {bestThree.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={tipMoney("Value")} />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
@@ -431,10 +602,11 @@ const Reports: React.FC = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis
+                  tickFormatter={yTickMoney}
                   label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip />
+                <Tooltip formatter={tipMoney("Profit")} />
                 <Legend verticalAlign="bottom" height={36} />
                 <Bar dataKey="value" fill={COLORS[1]} name="Profit" />
               </BarChart>
@@ -461,10 +633,11 @@ const Reports: React.FC = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis
+                  tickFormatter={yTickMoney}
                   label={{ value: "BWP", angle: -90, position: "insideLeft", offset: -5, fontSize: 12 }}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip />
+                <Tooltip formatter={tipMoney("Sales")} />
                 <Legend verticalAlign="bottom" height={36} />
                 <Bar dataKey="value" fill={COLORS[1]} name="Sales" />
               </BarChart>
@@ -484,34 +657,47 @@ const Reports: React.FC = () => {
             <TableHead>
               <TableRow sx={{ bgcolor: brand.pale }}>
                 <TableCell sx={{ fontWeight: 700, color: brand.dark }}>Product</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Cash</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Buying Cash</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Profit</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>Effective Total</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {cashRows.map((r) => (
-                <TableRow key={r.product}>
-                  <TableCell>{r.product}</TableCell>
-                  <TableCell align="right">{Math.round(r.cash).toLocaleString()}</TableCell>
-                  <TableCell align="right">{Math.round(r.profit).toLocaleString()}</TableCell>
+                <TableRow key={`${r.sku}-${r.name}`}>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography>{r.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">SKU: {r.sku}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right">BWP {fmtMoney(r.buyingCash)}</TableCell>
+                  <TableCell align="right">BWP {fmtMoney(r.profit)}</TableCell>
+                  <TableCell align="right">BWP {fmtMoney(r.effectiveTotal)}</TableCell>
                 </TableRow>
               ))}
               <TableRow sx={{ bgcolor: brand.pale }}>
-                <TableCell sx={{ fontWeight: 700, color: brand.dark }}>Total</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: brand.dark }}>Totals</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>
-                  {Math.round(cashTotals.totalCash).toLocaleString()}
+                  BWP {fmtMoney(cashTotals.totalBuyingCash)}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>
-                  {Math.round(cashTotals.totalProfit).toLocaleString()}
+                  BWP {fmtMoney(cashTotals.totalProfit)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: brand.dark }}>
+                  BWP {fmtMoney(cashTotals.totalBuyingCash + cashTotals.totalProfit)}
                 </TableCell>
               </TableRow>
             </TableBody>
           </Table>
-          <Typography sx={{ mt: 2, fontWeight: 700, color: brand.dark }}>Cash Balance</Typography>
-          <Chip
-            label={Math.round(cashTotals.cashBalance).toLocaleString()}
-            sx={{ mt: 1, bgcolor: brand.dark, color: 'white', fontWeight: 700 }}
-          />
+
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography sx={{ fontWeight: 700, color: brand.dark }}>Cash Balance</Typography>
+            <Chip
+              label={`BWP ${fmtMoney(cashTotals.cashBalance)}`}
+              sx={{ bgcolor: brand.dark, color: 'white', fontWeight: 700 }}
+            />
+          </Box>
         </Paper>
       )}
 
@@ -537,7 +723,7 @@ const Reports: React.FC = () => {
                     {k.label}
                   </Typography>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: brand.dark, mt: 0.5 }}>
-                    {Math.round(Number(k.value || 0)).toLocaleString()}
+                    BWP {fmtMoney(k.value)}
                   </Typography>
                 </Paper>
               </Grid>

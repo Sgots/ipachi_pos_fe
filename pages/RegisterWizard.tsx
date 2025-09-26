@@ -176,6 +176,24 @@ const RegisterWizard: React.FC = () => {
     }
     // If none worked, leave it unset; backend may not require it for your next route.
   }
+function clearSession() {
+  try {
+    // Clear headers / interceptors via your helpers
+    setAuthToken(null);
+    setBusinessId(null);
+    setTerminalId(null);
+  } catch { /* ignore */ }
+
+  try {
+    // Belt-and-braces cleanup for any cached bits your app may use
+    localStorage.removeItem("activeUserId");
+    localStorage.removeItem("x.business.id");
+    localStorage.removeItem("x.terminal.id");
+    localStorage.removeItem("auth.token");
+    localStorage.removeItem("auth.user");
+    sessionStorage.clear(); // if you used it anywhere
+  } catch { /* ignore */ }
+}
 
   // Step 2 -> multipart (JSON + files) + persist Business ID
   const submit = async () => {
@@ -200,10 +218,16 @@ const RegisterWizard: React.FC = () => {
       const { data: setupResp } = await api.post(endpoints.user.setup, form);
 
       // Persist BusinessId from response or via fallbacks
-      await persistBusinessIdFromServer(setupResp);
+// Persist BusinessId from response or via fallbacks
+await persistBusinessIdFromServer(setupResp);
+
+// 🔐 Clear any logged-in context so the new user must log in afresh
+clearSession();
+
+// 🎯 Redirect to login (replace: true avoids back-nav returning to wizard)
+nav("/login", { replace: true });
 
       // Done — go to your next screen
-      nav("/customers");
     } catch (e: any) {
       setErrS2(e?.response?.data?.message || "Failed to complete setup.");
     } finally {

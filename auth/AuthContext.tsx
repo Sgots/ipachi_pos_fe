@@ -32,7 +32,16 @@ type CurrentUser = {
   roles?: string[];
 };
 
-type Action = "VIEW" | "CREATE" | "EDIT" | "DELETE";
+// before
+// type Action = "VIEW" | "CREATE" | "EDIT" | "DELETE";
+
+// after
+export type Action =
+  | "VIEW"
+  | "CREATE"
+  | "EDIT"
+  | "DELETE"
+  | (string & {}); // allow other strings safely
 
 /** Business profile coming from /api/users/{id}/business-profile */
 type BusinessProfileDTO = {
@@ -257,9 +266,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   };
 
   /** ----- can(resource, action) ----- */
-  const can = (resource: string, action: Action): boolean => {
+  const can = (resource: string, action: Action | string): boolean => {
     const R = norm(resource);
-    const A = norm(action);
+    const A = norm(String(action));
     const roleSet = new Set<string>((currentUser.roles || []).map(norm));
 
     if (roleSet.has("ROLE_ADMIN") || roleSet.has("ADMIN")) return true;
@@ -274,7 +283,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!implied) continue;
       for (const [res, act] of implied) {
         if (res === "*" || norm(res) === R) {
-          if (norm(act) === A) return true;
+          if (norm(String(act)) === A) return true;
         }
       }
     }

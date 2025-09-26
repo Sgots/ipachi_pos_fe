@@ -4,19 +4,43 @@ import { endpoints, type CategoryDTO, type CategoryCreate, type CategoryUpdate,
   type MeasurementDTO, type MeasurementCreate, type MeasurementUpdate,
   type ProductDTO, type ProductCreate, type ProductUpdate } from "./endpoints";
 
-
 // ---------- Endpoint bases ----------
 const PRODUCTS_BASE = endpoints.inventory?.products ?? "/api/inventory/products";
 const MEAS_BASE      = endpoints.inventory?.measurements ?? "/api/inventory/measurements";
 const CATS_BASE      = endpoints.inventory?.categories ?? "/api/inventory/categories";
 const RECEIPTS_BASE  = endpoints.inventory?.receipts ?? "/api/inventory/receipts";
 const STOCK_BASE     = endpoints.inventory?.stock ?? "/api/inventory/stock";
+const RESTOCK_HISTORY_BASE = endpoints.inventory?.restockHistory ?? "/api/inventory/restock-history"; // New endpoint
 
 const componentsPath = (id: number) =>
   endpoints.inventory?.components?.(id) ?? `${PRODUCTS_BASE}/${id}/components`;
 
 const restockPath = (id: number) =>
   endpoints.inventory?.restock?.(id) ?? `${PRODUCTS_BASE}/${id}/restock`;
+
+// ---------- Restock History (NEW) ----------
+export interface RestockHistoryRow {
+  date: string; // e.g., "2025-09-26"
+  productId: number;
+  sku: string;
+  name: string;
+  openingStock: number;
+  newStock: number;
+  closingStock: number;
+}
+
+export async function fetchRestockHistory(q?: string): Promise<RestockHistoryRow[]> {
+  const { data } = await api.get<RestockHistoryRow[]>(RESTOCK_HISTORY_BASE, { params: { q } });
+  return data.map(item => ({
+    date: item.date,
+    productId: item.productId,
+    sku: item.sku,
+    name: item.name,
+    openingStock: Number(item.openingStock),
+    newStock: Number(item.newStock),
+    closingStock: Number(item.closingStock),
+  }));
+}
 
 // ---------- Categories ----------
 export async function allCategories() {
@@ -127,7 +151,7 @@ export async function componentsOfProduct(id: number) {
   return data;
 }
 
-// ---------- Stock (NEW) ----------
+// ---------- Stock ----------
 export type StockItemDTO = {
   id: number;
   sku: string;
@@ -136,7 +160,7 @@ export type StockItemDTO = {
   unitId?: number | null;
   unitName?: string | null;
   unitAbbr?: string | null;
-  quantity: string | number;     // BigDecimal as string or number
+  quantity: string | number;
   lowStock?: number | null;
 };
 export async function fetchStock(q?: string) {
@@ -154,10 +178,11 @@ export type StockReceiptDTO = {
   fileUrl: string;
   createdAt: string;
 };
-export async function uploadStockReceipt(label: string, file: File) {
+export async function uploadStockReceipt(label: string, file: File, date?: string) {
   const form = new FormData();
   form.append("label", label);
   form.append("file", file);
+  if (date) form.append("date", date); // Include date if provided
   const { data } = await api.post<StockReceiptDTO>(RECEIPTS_BASE, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });

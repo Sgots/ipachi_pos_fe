@@ -68,6 +68,7 @@ type SettingsDTO = {
   currency: string;
   abbreviation: string;
   enableVat: boolean;
+  // derived from enableVat; not editable in UI
   pricesIncludeVat: boolean;
   vatRate: number; // percent, e.g. 14.00
 };
@@ -193,7 +194,7 @@ const Account: React.FC = () => {
     currency: "PHP",
     abbreviation: "P",
     enableVat: false,
-    pricesIncludeVat: false,
+    pricesIncludeVat: false, // derived; will mirror enableVat
     vatRate: 0,
   });
 
@@ -211,7 +212,7 @@ const Account: React.FC = () => {
   // fallback endpoints (if backend does not provide full URLs)
   const userPictureEndpoint = "/api/user-profile/picture";
   const userIdDocEndpoint = "/api/user-profile/id-doc";
-  const businessLogoEndpoint = "/api/business-profile/logo";
+  const businessLogoEndpoint = "/api/business-profile/logo/file";
 
   // Helper: resolve relative path into absolute using axios baseURL or fallback to localhost:8080
   const resolveAssetUrl = (path?: string | null) => {
@@ -220,6 +221,26 @@ const Account: React.FC = () => {
     const axiosBase = (client as any).defaults?.baseURL ?? "";
     if (axiosBase) return axiosBase.replace(/\/$/, "") + path;
     return `${window.location.protocol}//${window.location.hostname}:8080${path}`;
+  };
+const authenticatedDownload = async (url: string, suggestedName = "file") => {
+    try {
+      const { data, headers } = await client.get(resolveAssetUrl(url), { responseType: "blob" });
+      const blob = new Blob([data], { type: headers["content-type"] || "application/octet-stream" });
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      // try to read filename from header if present
+      const cd = headers["content-disposition"] as string | undefined;
+      const m = cd && /filename="([^"]+)"/i.exec(cd);
+      a.download = m?.[1] || suggestedName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      console.error("Download failed:", e);
+      alert("Download failed");
+    }
   };
 
   const getUserInitial = (): string | null => {
@@ -277,11 +298,13 @@ const Account: React.FC = () => {
       .then((res) => {
         const data = res.data?.data ?? res.data;
         if (data) {
+          const enableVat = !!data.enableVat;
           setSettings((prev) => ({
             currency: data.currency ?? prev.currency,
             abbreviation: data.abbreviation ?? prev.abbreviation,
-            enableVat: !!data.enableVat,
-            pricesIncludeVat: !!data.pricesIncludeVat,
+            enableVat,
+            // derive: true when VAT enabled; false otherwise
+            pricesIncludeVat: enableVat,
             vatRate: Number(data.vatRate ?? prev.vatRate) || 0,
           }));
         }
@@ -412,11 +435,14 @@ const Account: React.FC = () => {
     e.preventDefault();
     if (!isAdmin) return;
 
+    const enableVat = !!settings.enableVat;
+
     const body = {
       currency: settings.currency,
       abbreviation: settings.abbreviation,
-      enableVat: !!settings.enableVat,
-      pricesIncludeVat: !!settings.pricesIncludeVat,
+      enableVat,
+      // derived: true when VAT is enabled, otherwise false
+      pricesIncludeVat: enableVat,
       vatRate: normalizedVatRate(Number(settings.vatRate)),
     };
 
@@ -426,11 +452,12 @@ const Account: React.FC = () => {
     client.get("/api/settings").then((res) => {
       const data = res.data?.data ?? res.data;
       if (data) {
+        const enableVatSrv = !!data.enableVat;
         setSettings({
           currency: data.currency ?? body.currency,
           abbreviation: data.abbreviation ?? body.abbreviation,
-          enableVat: !!data.enableVat,
-          pricesIncludeVat: !!data.pricesIncludeVat,
+          enableVat: enableVatSrv,
+          pricesIncludeVat: enableVatSrv, // keep mirrored
           vatRate: Number(data.vatRate ?? body.vatRate) || 0,
         });
       }
@@ -576,19 +603,20 @@ const Account: React.FC = () => {
                     {!aboutMe.hasPicture && getUserInitial()}
                   </Avatar>
 
-                  {aboutMe.hasPicture ? (
-                    <Box sx={{ display: "flex", gap: 1 }}>
-                      <Link
-                        href={resolveAssetUrl(aboutMe.pictureUrl ?? userPictureEndpoint)}
-                        target="_blank"
-                        rel="noreferrer"
-                        download
-                        underline="none"
-                      >
-                        <Button variant="contained" size="small">
-                          Download
-                        </Button>
-                      </Link>
+                    {aboutMe.hasPicture ? (
+                                      <Box sx={{ display: "flex", gap: 1 }}>
+                                        <Button
+                                          variant="contained"
+                                          size="small"
+                                          onClick={() =>
+                                            aboutMe.pictureUrl
+                                              ? authenticatedDownload(aboutMe.pictureUrl, "profile-picture")
+                                              : undefined
+                                          }
+                                        >
+                                          Download
+                                        </Button>
+
                     </Box>
                   ) : (
                     <Typography variant="caption" color="text.secondary">
@@ -738,23 +766,15 @@ const Account: React.FC = () => {
                         ID document:{" "}
                         {aboutMe.hasIdDoc ? (
                           <>
-                            <Link
-                              href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)}
-                              target="_blank"
-                              rel="noreferrer"
-                              underline="none"
-                            >
-                              View
-                            </Link>
-                            {" • "}
-                            <Link
-                              href={resolveAssetUrl(aboutMe.idDocUrl ?? userIdDocEndpoint)}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                            >
-                              Download
-                            </Link>
+
+
+                            {aboutMe.idDocUrl && (
+                                                    <Button
+                                                      onClick={() => authenticatedDownload(aboutMe.idDocUrl!, "id-document")}
+                                                    >
+                                                      Download
+                                                    </Button>
+                                                  )}
                           </>
                         ) : (
                           "not provided"
@@ -824,17 +844,18 @@ const Account: React.FC = () => {
 
                   {business.hasLogo ? (
                     <Box sx={{ display: "flex", gap: 1 }}>
-                      <Link
-                        href={resolveAssetUrl(business.logoUrl ?? businessLogoEndpoint)}
-                        target="_blank"
-                        rel="noreferrer"
-                        download
-                        underline="none"
-                      >
-                        <Button variant="contained" size="small">
-                          Download
-                        </Button>
-                      </Link>
+
+                  <Button
+                                         variant="contained"
+                                         size="small"
+                                         onClick={() =>
+                                           business.logoUrl
+                                             ? authenticatedDownload(business.logoUrl, "business-logo")
+                                             : undefined
+                                         }
+                                       >
+                                         Download
+                                       </Button>
                     </Box>
                   ) : (
                     <Typography variant="caption" color="text.secondary">
@@ -985,26 +1006,22 @@ const Account: React.FC = () => {
               control={
                 <Switch
                   checked={!!settings.enableVat}
-                  onChange={(e) => setSettings({ ...settings, enableVat: e.target.checked })}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      enableVat: e.target.checked,
+                      // mirror derived value locally
+                      pricesIncludeVat: e.target.checked,
+                    }))
+                  }
                   color="primary"
                 />
               }
               label="Enable VAT"
-              sx={{ mb: 1 }}
-            />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={!!settings.pricesIncludeVat}
-                  onChange={(e) => setSettings({ ...settings, pricesIncludeVat: e.target.checked })}
-                  color="primary"
-                  disabled={!settings.enableVat}
-                />
-              }
-              label="Prices include VAT"
               sx={{ mb: 2 }}
             />
+
+            {/* "Prices include VAT" control removed (derived from enableVat) */}
 
             <TextField
               label="VAT Rate (%)"
