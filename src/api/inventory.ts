@@ -11,6 +11,10 @@ const CATS_BASE      = endpoints.inventory?.categories ?? "/api/inventory/catego
 const RECEIPTS_BASE  = endpoints.inventory?.receipts ?? "/api/inventory/receipts";
 const STOCK_BASE     = endpoints.inventory?.stock ?? "/api/inventory/stock";
 const RESTOCK_HISTORY_BASE = endpoints.inventory?.restockHistory ?? "/api/inventory/restock-history"; // New endpoint
+// src/api/inventory.ts
+
+// export a tiny helper
+export const qrDownloadUrl = (id: number) => `${PRODUCTS_BASE}/${id}/qr.png`;
 
 const componentsPath = (id: number) =>
   endpoints.inventory?.components?.(id) ?? `${PRODUCTS_BASE}/${id}/components`;
@@ -19,27 +23,50 @@ const restockPath = (id: number) =>
   endpoints.inventory?.restock?.(id) ?? `${PRODUCTS_BASE}/${id}/restock`;
 
 // ---------- Restock History (NEW) ----------
+// src/api/inventory.ts
+
 export interface RestockHistoryRow {
-  date: string; // e.g., "2025-09-26"
-  productId: number;
-  sku: string;
-  name: string;
-  openingStock: number;
-  newStock: number;
-  closingStock: number;
+    receiptId: number;
+    receiptAt: string;          // ISO datetime
+    label: string;
+    uploadedBy: string;
+    hasFile: boolean;
+    fileUrl: string | null;
+
+    openingValue: number;       // using selling price w/out VAT
+    newValue: number;
+    closingValue: number;
 }
 
-export async function fetchRestockHistory(q?: string): Promise<RestockHistoryRow[]> {
-  const { data } = await api.get<RestockHistoryRow[]>(RESTOCK_HISTORY_BASE, { params: { q } });
-  return data.map(item => ({
-    date: item.date,
-    productId: item.productId,
-    sku: item.sku,
-    name: item.name,
-    openingStock: Number(item.openingStock),
-    newStock: Number(item.newStock),
-    closingStock: Number(item.closingStock),
-  }));
+export interface ReceiptItemRow {
+    productId: number;
+    sku: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    value: number;
+}
+
+export async function fetchRestockHistory(q?: string, from?: string, to?: string): Promise<RestockHistoryRow[]> {
+    const { data } = await api.get<RestockHistoryRow[]>(endpoints.inventory.restockHistory, { params: { q, from, to } });
+    return data.map(d => ({
+        ...d,
+        openingValue: Number(d.openingValue),
+        newValue: Number(d.newValue),
+        closingValue: Number(d.closingValue),
+    }));
+}
+
+export async function fetchReceiptItems(receiptId: number): Promise<ReceiptItemRow[]> {
+    const { data } = await api.get<ReceiptItemRow[]>(`/api/inventory/receipts/${receiptId}/items`);
+    return data.map(x => ({ ...x, quantity: Number(x.quantity), unitPrice: Number(x.unitPrice), value: Number(x.value) }));
+}
+// Download QR PNG as a Blob (uses axios instance with auth headers)
+export async function fetchQrPng(id: number): Promise<Blob> {
+    const { data } = await api.get(`${PRODUCTS_BASE}/${id}/qr.png`, {
+        responseType: "blob",
+    });
+    return data as Blob;
 }
 
 // ---------- Categories ----------

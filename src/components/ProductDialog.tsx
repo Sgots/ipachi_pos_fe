@@ -418,11 +418,15 @@ const ProductDialog: React.FC<{
           </Grid>
 
           {/* Quick barcode generator */}
-          <Grid item xs={12} sm={6}>
-            <Button variant="contained" onClick={genBarcode} sx={{ mt: 0.8 }}>
-              Generate barcode
-            </Button>
-          </Grid>
+            <Grid item xs={12} sm={6}>
+                <Button variant="contained" onClick={genBarcode} sx={{ mt: 0.8 }}>
+                    Generate barcode & QR
+                </Button>
+                <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.8 }}>
+                    A QR code PNG will be auto-generated from the barcode and stored on the server.
+                </Typography>
+            </Grid>
+
         </Grid>
 
         {/* Profit display (now includes Buying Price next to Estimated Profit) */}

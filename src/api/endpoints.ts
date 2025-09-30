@@ -17,6 +17,8 @@ export const endpoints = {
     receipts: "/api/inventory/receipts",
     stock: "/api/inventory/stock",
     restock: (id: number | string) => `/api/inventory/products/${id}/restock`,
+      restockHistory: "/api/inventory/restock-history",
+
   },
   customers: {
     base: "/api/customers",
@@ -167,3 +169,12 @@ export type NewUserSetupRequest = {
   bizLocation?: string;
 };
 
+export interface RestockHistoryRow {
+    date: string; // e.g., "2025-09-26"
+    productId: number;
+    sku: string;
+    name: string;
+    openingStock: number;
+    newStock: number;
+    closingStock: number;
+}

@@ -5,6 +5,7 @@ import { setAuthToken, setBusinessId, setTerminalId } from "../api/client";
 
 import { endpoints, AuthResponse, RegisterRequest, NewUserSetupRequest } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
+import TimerIcon from "@mui/icons-material/Timer";
 
 import {
   Box, Paper, Typography, Stepper, Step, StepLabel, Grid, TextField,
@@ -66,7 +67,37 @@ const RegisterWizard: React.FC = () => {
   const [savingS2, setSavingS2] = useState(false);
   const [errS1, setErrS1] = useState<string | null>(null);
   const [errS2, setErrS2] = useState<string | null>(null);
+    const [otp, setOtp] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+    const [otpMsg, setOtpMsg] = useState<string | null>(null);
+    const [otpCooldown, setOtpCooldown] = useState<number>(0);
+    const [otpOpen, setOtpOpen] = useState(false); // modal/dialog visibility
+// small cooldown timer to avoid spamming
+    React.useEffect(() => {
+        if (otpCooldown <= 0) return;
+        const t = setInterval(() => setOtpCooldown((x) => x - 1), 1000);
+        return () => clearInterval(t);
+    }, [otpCooldown]);
 
+
+    async function verifyOtp() {
+        setOtpMsg(null);
+        try {
+            setVerifyingOtp(true);
+            const msisdn = `${s1.areaCode}${s1.phone}`.replace(/\s+/g, "");
+            await api.post("/api/otp/verify", { phone: msisdn, code: otp });
+            setOtpVerified(true);
+            setOtpMsg("✅ Mobile verified. You can now register.");
+        } catch (e:any) {
+            setOtpVerified(false);
+            setOtpMsg(e?.response?.data?.message || "Invalid or expired OTP.");
+        } finally {
+            setVerifyingOtp(false);
+        }
+    }
   const [s1, setS1] = useState<Step1>({
     name: "", surname: "", email: "", password: "", confirm: "",
     areaCode: "+267", phone: "", remember: true, news: true
@@ -75,6 +106,30 @@ const RegisterWizard: React.FC = () => {
     country: "Botswana",
     picture: {}, idDoc: {}, bizLogo: {}
   });
+// --- OTP state ---
+
+
+// recompute validity + msisdn
+    const canSendOtp =
+        /^\+?\d{1,4}$/.test((s1.areaCode || "").trim()) &&
+        /^\d{5,15}$/.test((s1.phone || "").trim());
+    const msisdn = `${s1.areaCode}${s1.phone}`.replace(/\s+/g, "");
+
+// cooldown ticker
+    React.useEffect(() => {
+        if (otpCooldown <= 0) return;
+        const t = setInterval(() => setOtpCooldown(x => x - 1), 1000);
+        return () => clearInterval(t);
+    }, [otpCooldown]);
+
+// reset OTP flow if user edits phone/area code
+    React.useEffect(() => {
+        setOtp("");
+        setOtpSent(false);
+        setOtpVerified(false);
+        setOtpMsg(null);
+        // keep cooldown to avoid spam if they toggle digits
+    }, [s1.areaCode, s1.phone]);
 
   const pwScore = useMemo(() => strength(s1.password), [s1.password]);
   const pwHelper = ["Too short", "Weak", "Okay", "Good", "Strong", "Very strong"][pwScore];
@@ -121,32 +176,92 @@ const RegisterWizard: React.FC = () => {
       // ignore; backend may infer terminal some other way
     }
   }
+    async function sendOtp() {
+        if (!canSendOtp) { setOtpMsg("Enter a valid area code and phone first."); return; }
+        if (otpCooldown > 0 || sendingOtp) return;
 
-  // Step 1 -> register user, then sign in, then bootstrap terminal
-  const registerStep1 = async () => {
-    setErrS1(null); setSavingS1(true);
-    setAuthToken(null);
-    try {
-      // choose a username strategy; prefer email, else phone
-      const username = (s1.email && s1.email.trim()) || s1.phone.trim();
-      const body: RegisterRequest = { username, email: s1.email ?? "", password: s1.password };
-      await api.post<AuthResponse>(endpoints.auth.register, body);
-
-      // Immediately sign in so we can call the protected setup endpoint
-      await login(username, s1.password);
-
-      // Bootstrap: set activeUserId & persist Terminal ID for headers
-      await bootstrapContextAfterLogin();
-
-      setActive(1);
-    } catch (e: any) {
-      setErrS1(e?.response?.data?.message || "Failed to register. Please check details.");
-    } finally {
-      setSavingS1(false);
+        try {
+            setSendingOtp(true);
+            setOtp("");
+            setOtpVerified(false);
+            await api.post("/api/otp/request", { phone: msisdn });
+            setOtpSent(true);
+            setOtpCooldown(30);     // 30s before resend
+            setOtpMsg("OTP sent via SMS. Enter it below.");
+        } catch (e:any) {
+            setOtpMsg(e?.response?.data?.message || "Failed to send OTP.");
+        } finally {
+            setSendingOtp(false);
+        }
     }
-  };
+    async function doRegistration() {
+        setSavingS1(true);
+        setAuthToken(null);
+        try {
+            const username = (s1.email && s1.email.trim()) || s1.phone.trim();
+            const body: RegisterRequest = {
+                username,
+                email: s1.email ?? "",
+                password: s1.password,
+                areaCode: s1.areaCode,
+                phone: s1.phone,
+                otp, // we send it for server-side double-check, but only now after verify
+            } as any;
 
-  // Try to persist Business ID from response or by fetching the first available business
+            await api.post<AuthResponse>(endpoints.auth.register, body);
+            await login(username, s1.password);
+            await bootstrapContextAfterLogin();
+            setActive(1);
+        } catch (e:any) {
+            setErrS1(e?.response?.data?.message || "Failed to register. Please check details.");
+        } finally {
+            setSavingS1(false);
+        }
+    }
+
+    async function verifyOtpThenRegister() {
+        setOtpMsg(null);
+        if (!otp) { setOtpMsg("Enter the OTP you received."); return; }
+        try {
+            setVerifyingOtp(true);
+            setOtpMsg("Completing registration…");
+            await doRegistration(); // Server will verify OTP
+            setOtpVerified(true);
+            setOtpOpen(false);
+        } catch (e: any) {
+            setOtpVerified(false);
+            setOtpMsg(e?.response?.data?.message || "Registration failed.");
+        } finally {
+            setVerifyingOtp(false);
+        }
+    }
+  // Step 1 -> register user, then sign in, then bootstrap terminal
+    // Click REGISTER → if OTP not verified, trigger OTP dialog and send OTP.
+// Only after successful verification do we call /auth/register.
+    async function registerStep1() {
+        setErrS1(null);
+        if (!step1Valid) {
+            setErrS1("Fill in all required fields and ensure passwords match.");
+            return;
+        }
+        if (!canSendOtp) {
+            setErrS1("Enter a valid mobile number (area code + phone).");
+            return;
+        }
+        if (!otpSent) {
+            await sendOtp();
+            setOtpOpen(true);
+            return;
+        }
+        if (!otp) {
+            setOtpMsg("Enter the OTP you received.");
+            setOtpOpen(true);
+            return;
+        }
+        await doRegistration();
+    }
+
+    // Try to persist Business ID from response or by fetching the first available business
   async function persistBusinessIdFromServer(hint?: unknown) {
     // 1) If the setup response had a business id in common shapes, use it
     try {
@@ -302,16 +417,17 @@ nav("/login", { replace: true });
             </Grid>
 
             <Grid item xs={12}>
-              <Button
-                variant="contained"
-                onClick={registerStep1}
-                disabled={!step1Valid || savingS1}
-                sx={{ mt: 1, py: 1.3, borderRadius: 999, bgcolor: brand.dark, "&:hover": { bgcolor: "#0a4e40" } }}
-                fullWidth
-              >
-                {savingS1 ? "Registering..." : "REGISTER"}
-              </Button>
-              {errS1 && <Typography color="error" sx={{ mt: 1 }}>{errS1}</Typography>}
+                <Button
+                    variant="contained"
+                    onClick={registerStep1}
+                    disabled={!step1Valid || savingS1 || sendingOtp || verifyingOtp}
+                    sx={{ mt: 1, py: 1.3, borderRadius: 999, bgcolor: brand.dark, "&:hover": { bgcolor: "#0a4e40" } }}
+                    fullWidth
+                >
+                    {savingS1 ? "Registering..." : "REGISTER"}
+                </Button>
+
+                {errS1 && <Typography color="error" sx={{ mt: 1 }}>{errS1}</Typography>}
             </Grid>
           </Grid>
         )}
@@ -379,6 +495,69 @@ nav("/login", { replace: true });
             </Box>
           </>
         )}
+          {/* OTP Dialog */}
+          {otpOpen && (
+              <Box
+                  sx={{
+                      position: "fixed", inset: 0, bgcolor: "rgba(0,0,0,0.4)",
+                      display: "grid", placeItems: "center", zIndex: 1300
+                  }}
+              >
+                  <Paper sx={{ p: 3, width: "100%", maxWidth: 520, borderRadius: 4 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                          Verify your mobile
+                      </Typography>
+                      <Typography sx={{ mb: 2 }}>
+                          We sent an OTP to <b>{msisdn}</b>. Enter it below to continue.
+                      </Typography>
+
+                      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                          <TextField
+                              autoFocus
+                              label="Enter OTP"
+                              value={otp}
+                              onChange={(e)=>setOtp(e.target.value)}
+                              inputProps={{ inputMode: "numeric", maxLength: 8 }}
+                              fullWidth
+                              disabled={verifyingOtp}
+                          />
+                          <Button
+                              variant="contained"
+                              onClick={verifyOtpThenRegister}
+                              disabled={!otp || verifyingOtp}
+                              sx={{ borderRadius: 999, px: 3 }}
+                          >
+                              {verifyingOtp ? "Checking…" : "Verify"}
+                          </Button>
+                      </Box>
+
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
+                          <Button
+                              variant="outlined"
+                              onClick={sendOtp}
+                              disabled={!canSendOtp || sendingOtp || otpCooldown > 0}
+                              sx={{ borderRadius: 999, px: 3 }}
+                          >
+                              {sendingOtp ? "Sending…" : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : "Resend OTP"}
+                          </Button>
+                          <Button
+                              variant="text"
+                              onClick={()=> setOtpOpen(false)}
+                              sx={{ ml: "auto" }}
+                          >
+                              Cancel
+                          </Button>
+                      </Box>
+
+                      {otpMsg && (
+                          <Typography sx={{ mt: 1 }} color={otpVerified ? "success.main" : "text.secondary"}>
+                              {otpMsg}
+                          </Typography>
+                      )}
+                  </Paper>
+              </Box>
+          )}
+
       </Paper>
     </Box>
   );

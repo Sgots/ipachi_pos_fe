@@ -413,3 +413,148 @@ src/pages/Customers.tsx(104,15): error TS2774: This condition will always return
 [2025-09-25 01:45:37] Files transferred successfully
 [2025-09-25 01:45:37] Setting permissions and restarting Nginx on 159.223.202.97...
 [2025-09-25 01:45:37] Error: SSH commands failed
+[2025-09-26 20:21:20] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-26 20:21:20] Error: Could not navigate to project directory
+[2025-09-26 20:22:42] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:22:42] Installing dependencies and building the project...
+[2025-09-26 20:22:56] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:27:23] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:27:23] Installing dependencies and building the project...
+[2025-09-26 20:27:43] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:28:22] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:28:22] Installing dependencies and building the project...
+[2025-09-26 20:28:28] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:30:13] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:30:13] Installing dependencies and building the project...
+[2025-09-26 20:30:15] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:31:01] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:31:01] Installing dependencies and building the project...
+[2025-09-26 20:31:07] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:31:28] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:31:28] Installing dependencies and building the project...
+[2025-09-26 20:31:30] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:49:24] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:49:24] Installing dependencies and building the project...
+[2025-09-26 20:49:44] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+sh: 1: tsc: Permission denied
+[2025-09-26 20:54:32] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 20:54:32] Installing dependencies and building the project...
+[2025-09-26 20:58:47] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/Account.tsx(464,24): error TS2552: Cannot find name 'FormFormData'. Did you mean 'FormData'?
+[2025-09-26 21:00:31] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-26 21:00:31] Installing dependencies and building the project...
+[2025-09-26 21:00:51] Build completed successfully. Output directory: dist
+[2025-09-26 21:00:51] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-26 21:01:56] Files transferred successfully
+[2025-09-26 21:01:56] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-26 21:01:56] Error: SSH commands failed
+[2025-09-27 18:20:24] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-27 18:20:24] Installing dependencies and building the project...
+[2025-09-27 18:20:42] Build completed successfully. Output directory: dist
+[2025-09-27 18:20:42] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-27 18:21:56] Files transferred successfully
+[2025-09-27 18:21:56] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-27 18:21:56] Error: SSH commands failed
+[2025-09-27 20:20:20] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-27 20:20:20] Installing dependencies and building the project...
+[2025-09-27 20:20:39] Build completed successfully. Output directory: dist
+[2025-09-27 20:20:39] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-27 20:21:01] Files transferred successfully
+[2025-09-27 20:21:01] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-27 20:21:01] Error: SSH commands failed
+[2025-09-28 02:14:23] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-28 02:14:24] Installing dependencies and building the project...
+[2025-09-28 02:17:19] Build completed successfully. Output directory: dist
+[2025-09-28 02:17:19] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-28 02:17:40] Files transferred successfully
+[2025-09-28 02:17:40] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-28 02:17:40] Error: SSH commands failed
+[2025-09-29 11:21:54] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-29 11:21:54] Installing dependencies and building the project...
+[2025-09-29 11:23:14] Build completed successfully. Output directory: dist
+[2025-09-29 11:23:14] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-29 11:26:33] Error: SCP file transfer failed. Check scp.log for details.
+Connection closed by 159.223.202.97 port 22
+lost connection
+[2025-09-29 11:26:55] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-29 11:26:55] Installing dependencies and building the project...
+[2025-09-29 11:27:21] Build completed successfully. Output directory: dist
+[2025-09-29 11:27:21] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-29 11:27:41] Files transferred successfully
+[2025-09-29 11:27:41] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-29 11:27:41] Error: SSH commands failed
+[2025-09-29 11:31:52] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-29 11:31:52] Installing dependencies and building the project...
+[2025-09-29 11:32:08] Build completed successfully. Output directory: dist
+[2025-09-29 11:32:08] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-29 11:32:29] Files transferred successfully
+[2025-09-29 11:32:29] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-29 11:32:29] Error: SSH commands failed
+[2025-09-30 00:17:10] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-30 00:17:10] Installing dependencies and building the project...
+[2025-09-30 00:19:41] Build completed successfully. Output directory: dist
+[2025-09-30 00:19:41] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-30 00:20:11] Files transferred successfully
+[2025-09-30 00:20:11] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-30 00:20:11] Error: SSH commands failed
+[2025-09-30 00:41:12] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-30 00:41:12] Installing dependencies and building the project...
+[2025-09-30 00:41:19] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/SubscriptionCodes.tsx(280,17): error TS2322: Type 'Element | null' is not assignable to type 'ReactElement<unknown, any> | undefined'.
+  Type 'null' is not assignable to type 'ReactElement<unknown, any> | undefined'.
+[2025-09-30 00:45:06] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-30 00:45:06] Installing dependencies and building the project...
+[2025-09-30 00:45:21] Build completed successfully. Output directory: dist
+[2025-09-30 00:45:21] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-30 00:45:44] Files transferred successfully
+[2025-09-30 00:45:44] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-30 00:45:44] Error: SSH commands failed
+[2025-09-30 01:39:24] Navigating to project directory: /home/nonofo/PhpstormProjects/ipachi_pos_fe2
+[2025-09-30 01:39:24] Installing dependencies and building the project...
+[2025-09-30 01:39:40] Build completed successfully. Output directory: dist
+[2025-09-30 01:39:40] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-30 01:41:07] Files transferred successfully
+[2025-09-30 01:41:07] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-30 01:41:07] Error: SSH commands failed
