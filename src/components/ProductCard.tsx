@@ -10,6 +10,7 @@ interface Props {
   price: number;
   stock: number;
   lowStock?: number;
+    onSpecial?: boolean;
   img?: string;
   onAdd: () => void;
   userIdHeader?: string;
@@ -25,6 +26,7 @@ const ProductCard: React.FC<Props> = ({
   price,
   stock,
   lowStock = 0,
+    onSpecial = false,
   img,
   onAdd,
   userIdHeader,
@@ -85,6 +87,30 @@ const ProductCard: React.FC<Props> = ({
 
   const CardInner = (
     <>
+    {onSpecial && (
+            <Box
+              aria-label="On special"
+              sx={{
+                position: "absolute",
+                top: 10,
+                left: -32,
+                transform: "rotate(-45deg)",
+                bgcolor: "error.main",
+                color: "common.white",
+                px: 5,
+                py: 0.5,
+                fontWeight: 900,
+                letterSpacing: 1,
+                fontSize: "0.70rem",
+                textTransform: "uppercase",
+                boxShadow: 2,
+                pointerEvents: "none",
+              }}
+            >
+              On Special
+            </Box>
+          )}
+
       <Box
         sx={{
           height: 112,

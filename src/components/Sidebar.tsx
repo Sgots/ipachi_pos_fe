@@ -90,7 +90,6 @@ const Sidebar: React.FC = () => {
             { to: "/transactions", label: "Transactions", requireActive: true },
             { to: "/staff", label: "Staff Management", requireActive: true },
             { to: "/reports", label: "Reports", requireActive: true },
-            { to: "/activate-subscription", label: "Activate Subscription", requireActive: false },
         ];
         if (!hasActive && !loading) {
             return allItems.filter((i) => i.to === "/account" || i.to === "/activate-subscription");

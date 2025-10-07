@@ -89,7 +89,10 @@ export type MeasurementDTO = {
 };
 export type MeasurementCreate = { name: string; abbr: string };
 export type MeasurementUpdate = { name: string; abbr: string };
+// --- add this union near the top if you want to reuse it ---
+export type ProductSaleMode = "PER_UNIT" | "BY_WEIGHT";
 
+// Extend ProductDTO to reflect the backend (lifetime/lowStock/saleMode exist on Java DTO)
 export type ProductDTO = {
   id: number;
   sku: string;
@@ -113,8 +116,15 @@ export type ProductDTO = {
 
   productType?: "SINGLE" | "RECIPE";
   recipeCost?: string | null;
+
+  // ✅ NEW (match server DTO)
+  lifetime?: number | null;
+  lowStock?: number | null;
+    productsMade?: number | null;                 // <-- NEW
+  saleMode?: ProductSaleMode | null;
 };
 
+// Also allow sending them on create/update
 export type ProductCreate = {
   sku?: string;
   barcode?: string;
@@ -129,7 +139,15 @@ export type ProductCreate = {
     measurement: number | string;
     unitCost?: number | string | null;
   }>;
+  // ✅ NEW
+  lifetime?: number | null;
+  lowStock?: number | null;
+    productsMade?: number | null;                 // <-- NEW
+  saleMode?: ProductSaleMode | null;
 };
+
+
+
 export type ProductUpdate = ProductCreate & { id?: number };
 
 /** ---- Auth & user setup types (used by AuthContext / RegisterWizard) ---- */

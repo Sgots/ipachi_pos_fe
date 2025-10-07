@@ -156,6 +156,47 @@ const ProductDialog: React.FC<{
   // helpers
   const genBarcode = () =>
     setForm(f => ({ ...f, barcode: String(Math.floor(100000000 + Math.random() * 900000000)) }));
+// imports unchanged ...
+
+// inside the component:
+const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+// when dialog opens / initial changes, try to fetch existing image if no new file picked
+useEffect(() => {
+  let revoked = false;
+  let urlToRevoke: string | null = null;
+
+  async function loadExisting() {
+    // only try when editing, product has an existing imageUrl, and no new file chosen
+    if (!open) return;
+    if (!initial?.id) return;
+    if (!initial?.imageUrl) return;
+    if (form.imageFile) return;
+    try {
+      // use the authenticated fetcher
+      const { fetchProductImage } = await import("../api/inventory");
+      const blob = await fetchProductImage(initial.id);
+      const url = URL.createObjectURL(blob);
+      urlToRevoke = url;
+      if (!revoked) setImagePreviewUrl(url);
+    } catch {
+      // ignore preview errors – user can still upload a new one
+      setImagePreviewUrl(null);
+    }
+  }
+
+  // reset & load
+  setImagePreviewUrl(null);
+  loadExisting();
+
+  return () => {
+    revoked = true;
+    if (urlToRevoke) {
+      URL.revokeObjectURL(urlToRevoke);
+    }
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [open, initial, form.imageFile]);
 
   const addLine = () => {
     setLines(prev => [
@@ -416,6 +457,28 @@ const ProductDialog: React.FC<{
               </span>
             </label>
           </Grid>
+<Grid item xs={12}>
+  <div style={{ marginTop: 8 }}>
+    {form.imageFile ? (
+      <img
+        src={URL.createObjectURL(form.imageFile)}
+        alt="Preview"
+        style={{ maxHeight: 160, borderRadius: 8, display: "block" }}
+        onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+      />
+    ) : imagePreviewUrl ? (
+      <img
+        src={imagePreviewUrl}
+        alt="Current product"
+        style={{ maxHeight: 160, borderRadius: 8, display: "block" }}
+      />
+    ) : (
+      <Typography variant="body2" sx={{ opacity: 0.7 }}>
+        No image uploaded for this product.
+      </Typography>
+    )}
+  </div>
+</Grid>
 
           {/* Quick barcode generator */}
             <Grid item xs={12} sm={6}>

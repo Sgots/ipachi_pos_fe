@@ -8,12 +8,13 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import { ToggleButtonGroup, ToggleButton } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import InventoryTabs from "../components/InventoryTabs";
 import StockReceiptDialog from "../components/StockReceiptDialog";
 import {
-    fetchStock, restockProduct, searchReceipts, uploadStockReceipt
+    fetchStock,setProductQuantity, restockProduct, searchReceipts, uploadStockReceipt
 } from "../api/inventory";
 import { useAuth } from "../auth/AuthContext";
 
@@ -63,157 +64,275 @@ const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
 }));
 
 const RestockDialog: React.FC<{
-    open: boolean;
-    row?: StockRow | null;
-    onClose: () => void;
-    onUpdated: (productId: number, newQty: number) => void;
-    canEdit: boolean;
+  open: boolean;
+  row?: StockRow | null;
+  onClose: () => void;
+  onUpdated: (productId: number, newQty: number) => void;
+  canEdit: boolean;
 }> = ({ open, row, onClose, onUpdated, canEdit }) => {
-    const [qty, setQty] = useState<number | "">("");
-    const [receiptQ, setReceiptQ] = useState("");
-    const [opts, setOpts] = useState<any[]>([]);
-    const [sel, setSel] = useState<any | null>(null);
-    const [uploadOpen, setUploadOpen] = useState(false);
-    const [busy, setBusy] = useState(false);
+  const [qty, setQty] = useState<number | "">("");
+  const [receiptQ, setReceiptQ] = useState("");
+  const [opts, setOpts] = useState<any[]>([]);
+  const [sel, setSel] = useState<any | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-    useEffect(() => {
-        setQty("");
-        setReceiptQ("");
-        setOpts([]);
-        setSel(null);
-    }, [open]);
+  useEffect(() => {
+    setQty("");
+    setReceiptQ("");
+    setOpts([]);
+    setSel(null);
+  }, [open]);
 
-    useEffect(() => {
-        if (!open) return;
-        const t = setTimeout(async () => {
-            try {
-                setOpts(await searchReceipts(receiptQ));
-            } catch { /* ignore */ }
-        }, 200);
-        return () => clearTimeout(t);
-    }, [open, receiptQ]);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(async () => {
+      try {
+        setOpts(await searchReceipts(receiptQ));
+      } catch { /* ignore */ }
+    }, 200);
+    return () => clearTimeout(t);
+  }, [open, receiptQ]);
 
-    const submit = async () => {
-        if (!canEdit) return;
-        const delta = Number(qty);
-        if (!row?.id || !Number.isFinite(delta) || delta <= 0) return;
-        setBusy(true);
-        try {
-            const res = await restockProduct(row.id, delta, sel?.id);
-            onUpdated(res.productId, Number(res.quantity));
-            onClose();
-        } finally {
-            setBusy(false);
-        }
-    };
+  const submit = async () => {
+    if (!canEdit) return;
+    const delta = Number(qty);
+    if (!row?.id || !Number.isFinite(delta) || delta <= 0 || !sel?.id) return;
+    setBusy(true);
+    try {
+      const res = await restockProduct(row.id, delta, sel.id);
+      onUpdated(res.productId, Number(res.quantity));
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    return (
-        <>
-            <Dialog
-                open={open}
-                onClose={busy ? undefined : onClose}
-                fullWidth
-                maxWidth="sm"
-                PaperProps={{
-                    sx: {
-                        borderRadius: 2,
-                        boxShadow: (theme) => theme.shadows[5],
-                    },
-                }}
-            >
-                <StyledDialogTitle>
-                    <Typography className="title-text">Add Stock to Inventory</Typography>
-                </StyledDialogTitle>
-                <StyledDialogContent dividers>
-                    {row && (
-                        <Typography className="product-info">
-                            {row.name} (SKU: {row.sku})
-                        </Typography>
-                    )}
-                    <TextField
-                        autoFocus
-                        label="Quantity to Add"
-                        type="number"
-                        fullWidth
-                        variant="outlined"
-                        value={qty}
-                        onChange={(e) => setQty(e.target.value === "" ? "" : Number(e.target.value))}
-                        inputProps={{ min: 1 }}
-                        disabled={!canEdit}
-                        sx={{ mb: 3 }}
-                        InputLabelProps={{ shrink: true }}
-                    />
-                    <Autocomplete
-                        options={opts}
-                        getOptionLabel={(o) => o?.label ?? ""}
-                        value={sel}
-                        onChange={(_e, v) => setSel(v)}
-                        onInputChange={(_e, v) => setReceiptQ(v)}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                label="Link Receipt (Optional)"
-                                placeholder="Search by label or filename"
-                                variant="outlined"
-                            />
-                        )}
-                        disabled={!canEdit}
-                        sx={{ mb: 2 }}
-                    />
-                    <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => setUploadOpen(true)}
-                            disabled={!canEdit}
-                            sx={{ textTransform: "none" }}
-                        >
-                            Upload New Receipt
-                        </Button>
-                        {sel?.fileUrl && (
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => window.open(sel.fileUrl, "_blank")}
-                                sx={{ textTransform: "none" }}
-                            >
-                                View Selected Receipt
-                            </Button>
-                        )}
-                    </Box>
-                </StyledDialogContent>
-                <StyledDialogActions>
-                    <Button
-                        onClick={onClose}
-                        disabled={busy}
-                        sx={{ textTransform: "none" }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={submit}
-                        disabled={!qty || Number(qty) <= 0 || busy || !canEdit}
-                        sx={{ textTransform: "none", px: 3 }}
-                    >
-                        Add Stock
-                    </Button>
-                </StyledDialogActions>
-            </Dialog>
+  const qtyInvalid = !qty || Number(qty) <= 0;
+  const receiptMissing = !sel?.id;
 
-            <StockReceiptDialog
-                open={uploadOpen}
-                onClose={() => setUploadOpen(false)}
-                onUpload={async (label, file, date) => {
-                    if (!canEdit) return;
-                    const r = await uploadStockReceipt(label, file, date);
-                    setSel(r);
-                    setOpts(await searchReceipts(label));
-                    setUploadOpen(false);
-                }}
-            />
-        </>
-    );
+  return (
+    <>
+      <Dialog
+        open={open}
+        onClose={busy ? undefined : onClose}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 2, boxShadow: (theme) => theme.shadows[5] } }}
+      >
+        <StyledDialogTitle>
+          <Typography className="title-text">Add Stock to Inventory</Typography>
+        </StyledDialogTitle>
+
+        <StyledDialogContent dividers>
+          {row && (
+            <Typography className="product-info">
+              {row.name} (SKU: {row.sku})
+            </Typography>
+          )}
+
+          <TextField
+            autoFocus
+            label="Quantity to Add"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={qty}
+            onChange={(e) => setQty(e.target.value === "" ? "" : Number(e.target.value))}
+            inputProps={{ min: 1 }}
+            disabled={!canEdit}
+            sx={{ mb: 3 }}
+            InputLabelProps={{ shrink: true }}
+          />
+
+          <Autocomplete
+            options={opts}
+            getOptionLabel={(o) => o?.label ?? ""}
+            value={sel}
+            onChange={(_e, v) => setSel(v)}
+            onInputChange={(_e, v) => setReceiptQ(v)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                required
+                label="Link Receipt *"
+                placeholder="Search by label or filename"
+                variant="outlined"
+                error={receiptMissing}
+                helperText={receiptMissing ? "Receipt is required." : " "}
+              />
+            )}
+            disabled={!canEdit}
+            sx={{ mb: 1 }}
+          />
+        </StyledDialogContent>
+
+        <StyledDialogActions>
+          <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submit}
+            disabled={qtyInvalid || receiptMissing || busy || !canEdit}
+            sx={{ textTransform: "none", px: 3 }}
+          >
+            Add Stock
+          </Button>
+        </StyledDialogActions>
+      </Dialog>
+
+      {/* This uploader belongs to the Restock dialog */}
+      <StockReceiptDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onUpload={async (label, file, date) => {
+          if (!canEdit) return;
+          const r = await uploadStockReceipt(label, file, date);
+          setSel(r);                       // auto-select the newly uploaded receipt
+          setOpts(await searchReceipts(label));
+          setUploadOpen(false);
+        }}
+      />
+    </>
+  );
+};
+const EditQuantityDialog: React.FC<{
+  open: boolean;
+  row?: StockRow | null;
+  onClose: () => void;
+  onUpdated: (productId: number, newQty: number) => void;
+  canEdit: boolean;
+}> = ({ open, row, onClose, onUpdated, canEdit }) => {
+  // mode: add or remove
+  const [mode, setMode] = useState<"add" | "remove">("add");
+  // amount to add/subtract
+  const [amt, setAmt] = useState<number | "">("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open && row) {
+      setMode("add");
+      setAmt("");
+    }
+    if (!open) {
+      setAmt("");
+    }
+  }, [open, row]);
+
+  const current = Number(row?.quantity ?? 0);
+  const amtNum = typeof amt === "number" ? amt : Number.NaN;
+  const amtInvalid = !Number.isFinite(amtNum) || amtNum < 0;
+  const newQty = Number.isFinite(amtNum)
+    ? (mode === "add" ? current + amtNum : current - amtNum)
+    : Number.NaN;
+  const newInvalid = !Number.isFinite(newQty) || newQty < 0;
+
+  const submit = async () => {
+    if (!canEdit || !row?.id || amtInvalid || newInvalid) return;
+    setBusy(true);
+    try {
+      const note =
+        mode === "add"
+          ? `Adjusted: +${amtNum} (from ${current} to ${newQty})`
+          : `Adjusted: -${amtNum} (from ${current} to ${newQty})`;
+      const res = await setProductQuantity(row.id, newQty, note);
+      onUpdated(res.productId, Number(res.quantity));
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={busy ? undefined : onClose}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{ sx: { borderRadius: 2, boxShadow: (t) => t.shadows[5] } }}
+    >
+      <StyledDialogTitle>
+        <Typography className="title-text">Edit Stock</Typography>
+      </StyledDialogTitle>
+
+      <StyledDialogContent dividers>
+        {row && <Box className="product-info">{row.name} (SKU: {row.sku})</Box>}
+
+        {/* Mode switch */}
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+          <ToggleButtonGroup
+            exclusive
+            value={mode}
+            onChange={(_e, v) => v && setMode(v)}
+            size="small"
+          >
+            <ToggleButton value="add">Add</ToggleButton>
+            <ToggleButton value="remove">Remove</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Amount input */}
+        <TextField
+          autoFocus
+          label={mode === "add" ? "Amount to Add" : "Amount to Remove"}
+          type="number"
+          fullWidth
+          variant="outlined"
+          value={amt}
+          onChange={(e) => setAmt(e.target.value === "" ? "" : Number(e.target.value))}
+          inputProps={{ min: 0, step: "any" }}
+          disabled={!canEdit}
+          sx={{ mb: 2 }}
+          InputLabelProps={{ shrink: true }}
+          error={amtInvalid}
+          helperText={amtInvalid ? "Amount must be 0 or more." : " "}
+        />
+
+        {/* Live summary */}
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">Current</Typography>
+            <Typography variant="h6">{current}</Typography>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">Change</Typography>
+            <Typography variant="h6">
+              {Number.isFinite(amtNum)
+                ? (mode === "add" ? `+${amtNum}` : `-${amtNum}`)
+                : "—"}
+            </Typography>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">New stock</Typography>
+            <Typography variant="h6" color={newInvalid ? "error" : "inherit"}>
+              {Number.isFinite(newQty) ? newQty : "—"}
+            </Typography>
+          </Paper>
+        </Box>
+
+        {newInvalid && (
+          <Typography sx={{ mt: 1 }} color="error" variant="body2">
+            New stock cannot be negative.
+          </Typography>
+        )}
+      </StyledDialogContent>
+
+      <StyledDialogActions>
+        <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={submit}
+          disabled={busy || amtInvalid || newInvalid || !canEdit}
+          sx={{ textTransform: "none", px: 3 }}
+        >
+          Save
+        </Button>
+      </StyledDialogActions>
+    </Dialog>
+  );
 };
 
 const InventoryStock: React.FC = () => {
@@ -229,6 +348,8 @@ const InventoryStock: React.FC = () => {
     const [restockFor, setRestockFor] = useState<StockRow | null>(null);
     const [uploadOpen, setUploadOpen] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
+// FIX: track which row is being edited
+const [editFor, setEditFor] = useState<StockRow | null>(null);
 
     const load = async () => {
         if (!CAN_VIEW) return;
@@ -360,22 +481,17 @@ const InventoryStock: React.FC = () => {
                                         </Tooltip>
 
                                         {/* EDIT permanently disabled */}
-                                        <Tooltip title="Edit (disabled)">
-                      <span>
-                        <IconButton size="small" disabled>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                                        </Tooltip>
-
-                                        {/* DELETE permanently disabled */}
-                                        <Tooltip title="Delete (disabled)">
-                      <span>
-                        <IconButton size="small" color="error" disabled>
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                                        </Tooltip>
+                                    <Tooltip title={CAN_EDIT ? "Edit quantity" : "No permission"}>
+                                       <span>
+                                         <IconButton
+                                           size="small"
+                                           onClick={() => CAN_EDIT && setEditFor(r)}
+                                           disabled={!CAN_EDIT}
+                                         >
+                                           <EditIcon fontSize="small" />
+                                         </IconButton>
+                                       </span>
+                                     </Tooltip>
                                     </TableCell>
                                 </TableRow>
                             );
@@ -404,6 +520,15 @@ const InventoryStock: React.FC = () => {
                 }}
                 canEdit={CAN_EDIT}
             />
+<EditQuantityDialog
+  open={!!editFor}
+  row={editFor ?? undefined}
+  onClose={() => setEditFor(null)}
+  onUpdated={(productId, newQty) => {
+    setRows(prev => prev.map(r => r.id === productId ? { ...r, quantity: Number(newQty) } : r));
+  }}
+  canEdit={CAN_EDIT}
+/>
 
             <StockReceiptDialog
                 open={uploadOpen}

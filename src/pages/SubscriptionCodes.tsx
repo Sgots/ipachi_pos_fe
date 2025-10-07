@@ -1,4 +1,3 @@
-// src/pages/SubscriptionCodes.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -40,12 +39,12 @@ const SubscriptionCodes: React.FC = () => {
     const [rows, setRows] = useState<CodeRow[]>([]);
     const [tier, setTier] = useState<Tier | "">("");
     const [used, setUsed] = useState<"" | "true" | "false">("");
+    const [businessId, setBusinessId] = useState<string>("");
     const [count, setCount] = useState<number>(10);
     const [genTier, setGenTier] = useState<Tier>("BRONZE");
-    const [prefix, setPrefix] = useState<string>("IP-");
+    const [prefix, setPrefix] = useState<string>("");
     const [expiresAt, setExpiresAt] = useState<string>("");
     const [loading, setLoading] = useState(false);
-
     const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     const fetchCodes = async () => {
@@ -55,6 +54,7 @@ const SubscriptionCodes: React.FC = () => {
                 params: {
                     tier: tier || undefined,
                     used: used === "" ? undefined : used === "true",
+                    redeemedByBusinessId: businessId ? Number(businessId) : undefined,
                     page: 0,
                     size: 200
                 }
@@ -67,12 +67,13 @@ const SubscriptionCodes: React.FC = () => {
         }
     };
 
-    useEffect(() => { fetchCodes(); }, []);
+    useEffect(() => { fetchCodes(); }, [tier, used, businessId]);
 
     const generate = async () => {
         try {
             await axios.post("/api/subscriptions/codes/generate", {
-                tier: genTier, count,
+                tier: genTier,
+                count,
                 prefix: prefix || undefined,
                 expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined
             });
@@ -84,19 +85,27 @@ const SubscriptionCodes: React.FC = () => {
     };
 
     const downloadCsv = async (onlyUsed: boolean | null) => {
-        const res = await axios.get("/api/subscriptions/codes/export", {
-            params: { used: onlyUsed === null ? undefined : onlyUsed, tier: tier || undefined },
-            responseType: "blob"
-        });
-        const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "subscription-codes.csv";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+        try {
+            const res = await axios.get("/api/subscriptions/codes/export", {
+                params: {
+                    used: onlyUsed === null ? (used === "" ? undefined : used === "true") : onlyUsed,
+                    tier: tier || undefined,
+                    redeemedByBusinessId: businessId ? Number(businessId) : undefined
+                },
+                responseType: "blob"
+            });
+            const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `subscription-codes-${onlyUsed === true ? "used" : "filtered"}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e: any) {
+            setToast({ type: "error", text: e?.response?.data?.message || "Failed to export codes" });
+        }
     };
 
     const statusChip = (r: CodeRow) => {
@@ -152,23 +161,31 @@ const SubscriptionCodes: React.FC = () => {
                             <MenuItem value="true">Used</MenuItem>
                         </TextField>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={3}>
+                        <TextField
+                            fullWidth
+                            label="Business ID (filter)"
+                            value={businessId}
+                            onChange={(e) => setBusinessId(e.target.value)}
+                            type="number"
+                            inputProps={{ min: 0 }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                             <Button type="button" variant="outlined" startIcon={<RefreshIcon />} onClick={fetchCodes} disabled={loading}>
                                 Refresh
                             </Button>
                             <Button type="button" variant="outlined" startIcon={<DownloadIcon />} onClick={() => downloadCsv(null)}>
-                                Export All
+                                Export Filtered
                             </Button>
-                            <Button type="button" variant="contained" startIcon={<DownloadIcon />} onClick={() => downloadCsv(true)}>
-                                Export Used
-                            </Button>
+
                         </Stack>
                     </Grid>
                 </Grid>
             </Paper>
 
-            {/* Generator (as a real form to prevent accidental page reloads) */}
+            {/* Generator */}
             <Paper
                 sx={{ p: 2, mb: 3 }}
                 component="form"
@@ -187,9 +204,6 @@ const SubscriptionCodes: React.FC = () => {
                             inputProps={{ min: 1, max: 10000 }}
                             onChange={(e) => setCount(Math.max(1, Math.min(10000, Number(e.target.value))))}
                         />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <TextField label="Prefix" fullWidth value={prefix} onChange={(e) => setPrefix(e.target.value)} />
                     </Grid>
                     <Grid item xs={12} md={3}>
                         <TextField
@@ -270,7 +284,6 @@ const SubscriptionCodes: React.FC = () => {
                 </Table>
             </Paper>
 
-            {/* Only render Snackbar when we actually have a toast (avoids children=null type) */}
             {toast && (
                 <Snackbar
                     open

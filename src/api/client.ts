@@ -75,8 +75,11 @@ client.interceptors.request.use((config) => {
     );
     const path = abs.pathname;
 
-    const isPublicAuth =
-        path.startsWith(endpoints.auth.login) || path.startsWith(endpoints.auth.register);
+  const isPublicAuth =
+    path.startsWith(endpoints.auth.login) ||
+    path.startsWith(endpoints.auth.register) ||
+    path.startsWith("/api/auth/forgot");
+
 
     if (!config.headers) config.headers = new AxiosHeaders() as any;
 

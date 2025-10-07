@@ -22,6 +22,7 @@ import RestockHistory from "../components/RestockHistory";
 import SubscriptionCodes from "../pages/SubscriptionCodes";
 import ActivateSubscription from "../pages/ActivateSubscription";
 import { SubscriptionGuard } from "../components/SubscriptionGuard";
+import  ForgotPassword  from "../pages/ForgotPassword";
 
 import { AdminOnlyGuard } from "../components/AdminOnlyGuard";
 
@@ -101,6 +102,9 @@ export const AppRoutes: React.FC = () => {
                     </ProtectedRoute>
                 }
             />
+            // e.g. in App.tsx or your router file
+            <Route path="/forgot" element={<ForgotPassword />} />
+
             <Route
                 path="/suppliers"
                 element={

@@ -558,3 +558,425 @@ src/pages/SubscriptionCodes.tsx(280,17): error TS2322: Type 'Element | null' is 
 [2025-09-30 01:41:07] Files transferred successfully
 [2025-09-30 01:41:07] Setting permissions and restarting Nginx on 159.223.202.97...
 [2025-09-30 01:41:07] Error: SSH commands failed
+[2025-09-30 19:14:57] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-30 19:14:57] Installing dependencies and building the project...
+[2025-09-30 19:15:09] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/RegisterWizard.tsx(539,58): error TS2339: Property 'areaCode' does not exist on type 'Step2'.
+[2025-09-30 19:18:26] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-09-30 19:18:26] Installing dependencies and building the project...
+[2025-09-30 19:18:48] Build completed successfully. Output directory: dist
+[2025-09-30 19:18:48] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-09-30 19:20:47] Files transferred successfully
+[2025-09-30 19:20:47] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-09-30 19:20:47] Error: SSH commands failed
+[2025-10-01 02:22:16] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-01 02:22:16] Installing dependencies and building the project...
+[2025-10-01 02:23:00] Build completed successfully. Output directory: dist
+[2025-10-01 02:23:00] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-01 02:23:37] Files transferred successfully
+[2025-10-01 02:23:37] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-01 02:23:38] Error: SSH commands failed
+[2025-10-02 02:04:15] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 02:04:15] Installing dependencies and building the project...
+[2025-10-02 02:04:29] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/ActivateSubscription.tsx(67,47): error TS2339: Property 'response' does not exist on type '{}'.
+src/pages/ActivateSubscription.tsx(67,68): error TS2339: Property 'message' does not exist on type '{}'.
+[2025-10-02 02:12:46] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 02:12:46] Installing dependencies and building the project...
+[2025-10-02 02:13:12] Build completed successfully. Output directory: dist
+[2025-10-02 02:13:12] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-02 02:13:42] Files transferred successfully
+[2025-10-02 02:13:42] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-02 02:13:42] Error: SSH commands failed
+[2025-10-02 20:48:22] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 20:48:22] Installing dependencies and building the project...
+[2025-10-02 20:48:34] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/api/endpoints.ts(146,13): error TS2300: Duplicate identifier 'ProductUpdate'.
+src/api/endpoints.ts(150,13): error TS2300: Duplicate identifier 'ProductUpdate'.
+src/api/inventory.ts(5,3): error TS2440: Import declaration conflicts with local declaration of 'ProductDTO'.
+src/api/inventory.ts(5,20): error TS2440: Import declaration conflicts with local declaration of 'ProductCreate'.
+src/api/inventory.ts(5,40): error TS2440: Import declaration conflicts with local declaration of 'ProductUpdate'.
+src/api/inventory.ts(15,13): error TS2300: Duplicate identifier 'ProductSaleMode'.
+src/api/inventory.ts(206,13): error TS2300: Duplicate identifier 'ProductSaleMode'.
+src/pages/InventoryProducts.tsx(380,17): error TS2322: Type '{ barcode: string | undefined; id: number; sku: string; name: string; category?: string | null | undefined; categoryId?: number | null | undefined; unit?: string | null | undefined; unitId?: number | ... 1 more ... | undefined; ... 7 more ...; saleMode?: "PER_UNIT" | ... 2 more ... | undefined; } | undefined' is not assignable to type 'Partial<ProductDraft> | undefined'.
+  Type '{ barcode: string | undefined; id: number; sku: string; name: string; category?: string | null; categoryId?: number | null; unit?: string | null; unitId?: number | null; buyPrice: number; ... 6 more ...; saleMode?: "PER_UNIT" | "BY_WEIGHT" | null; }' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'saleMode' are incompatible.
+      Type '"PER_UNIT" | "BY_WEIGHT" | null | undefined' is not assignable to type 'ProductSaleMode | undefined'.
+        Type 'null' is not assignable to type 'ProductSaleMode | undefined'.
+src/pages/Reports.tsx(608,62): error TS2345: Argument of type 'ValueType' is not assignable to parameter of type 'string | number | null | undefined'.
+  Type '(string | number)[]' is not assignable to type 'string | number | null | undefined'.
+src/pages/Reports.tsx(630,62): error TS2345: Argument of type 'ValueType' is not assignable to parameter of type 'string | number | null | undefined'.
+  Type '(string | number)[]' is not assignable to type 'string | number | null | undefined'.
+src/pages/Reports.tsx(653,62): error TS2345: Argument of type 'ValueType' is not assignable to parameter of type 'string | number | null | undefined'.
+  Type '(string | number)[]' is not assignable to type 'string | number | null | undefined'.
+src/pages/Reports.tsx(689,62): error TS2345: Argument of type 'ValueType' is not assignable to parameter of type 'string | number | null | undefined'.
+  Type '(string | number)[]' is not assignable to type 'string | number | null | undefined'.
+src/pages/Reports.tsx(712,62): error TS2345: Argument of type 'ValueType' is not assignable to parameter of type 'string | number | null | undefined'.
+  Type '(string | number)[]' is not assignable to type 'string | number | null | undefined'.
+[2025-10-02 21:09:45] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 21:09:45] Installing dependencies and building the project...
+[2025-10-02 21:09:53] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/InventoryProducts.tsx(385,17): error TS1005: '}' expected.
+src/pages/Reports.tsx(931,79): error TS1002: Unterminated string literal.
+src/pages/Reports.tsx(932,27): error TS1005: ',' expected.
+src/pages/Reports.tsx(932,31): error TS1136: Property assignment expected.
+src/pages/Reports.tsx(932,33): error TS1005: '...' expected.
+src/pages/Reports.tsx(932,43): error TS1005: '}' expected.
+src/pages/Reports.tsx(932,68): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/pages/Reports.tsx(932,69): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/pages/Reports.tsx(932,70): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+src/pages/Reports.tsx(932,85): error TS17002: Expected corresponding JSX closing tag for 'Paper'.
+src/pages/Reports.tsx(937,15): error TS17002: Expected corresponding JSX closing tag for 'div'.
+src/pages/Reports.tsx(938,11): error TS1005: ')' expected.
+src/pages/Reports.tsx(938,13): error TS17002: Expected corresponding JSX closing tag for 'Box'.
+src/pages/Reports.tsx(939,9): error TS1005: ')' expected.
+src/pages/Reports.tsx(940,7): error TS1109: Expression expected.
+src/pages/Reports.tsx(940,8): error TS1128: Declaration or statement expected.
+src/pages/Reports.tsx(989,5): error TS1128: Declaration or statement expected.
+src/pages/Reports.tsx(990,3): error TS1109: Expression expected.
+src/pages/Reports.tsx(991,1): error TS1128: Declaration or statement expected.
+[2025-10-02 21:14:11] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 21:14:11] Installing dependencies and building the project...
+[2025-10-02 21:14:22] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/components/RestockHistory.tsx(18,10): error TS2305: Module '"../api/inventory"' has no exported member 'RestockHistoryRow'.
+[2025-10-02 21:18:00] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 21:18:00] Installing dependencies and building the project...
+[2025-10-02 21:18:44] Build completed successfully. Output directory: dist
+[2025-10-02 21:18:44] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-02 21:19:33] Files transferred successfully
+[2025-10-02 21:19:33] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-02 21:19:33] Error: SSH commands failed
+[2025-10-02 22:19:25] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 22:19:25] Installing dependencies and building the project...
+[2025-10-02 22:20:01] Build completed successfully. Output directory: dist
+[2025-10-02 22:20:01] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-02 22:20:31] Files transferred successfully
+[2025-10-02 22:20:31] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-02 22:20:31] Error: SSH commands failed
+[2025-10-02 22:46:30] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-02 22:46:30] Installing dependencies and building the project...
+[2025-10-02 22:47:34] Build completed successfully. Output directory: dist
+[2025-10-02 22:47:34] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-02 22:48:07] Files transferred successfully
+[2025-10-02 22:48:07] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-02 22:48:07] Error: SSH commands failed
+[2025-10-03 00:09:38] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 00:09:38] Installing dependencies and building the project...
+[2025-10-03 00:09:57] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/Reports.tsx(396,3): error TS2353: Object literal may only specify known properties, and 'copyStyles' does not exist in type 'UseReactToPrintOptions'.
+[2025-10-03 00:13:44] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 00:13:44] Installing dependencies and building the project...
+[2025-10-03 00:14:21] Build completed successfully. Output directory: dist
+[2025-10-03 00:14:21] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-03 00:14:40] Error: SCP file transfer failed. Check scp.log for details.
+Permission denied, please try again.
+Permission denied, please try again.
+root@159.223.202.97: Permission denied (publickey,password).
+scp: Connection closed
+[2025-10-03 00:23:24] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 00:23:24] Installing dependencies and building the project...
+[2025-10-03 00:23:44] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/InventoryProducts.tsx(392,14): error TS2322: Type '{ barcode: string | undefined; saleMode: "PER_UNIT" | "BY_WEIGHT" | undefined; id: number; sku: string; name: string; category?: string | null | undefined; categoryId?: number | null | undefined; ... 9 more ...; productType?: "SINGLE" | ... 4 more ... | undefined; } | undefined' is not assignable to type 'Partial<ProductDraft> | undefined'.
+  Type '{ barcode: string | undefined; saleMode: "PER_UNIT" | "BY_WEIGHT" | undefined; id: number; sku: string; ... 12 more ...; productType?: "SINGLE" | "RECIPE" | "single" | "recipe" | null; }' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'productType' are incompatible.
+      Type '"SINGLE" | "RECIPE" | "single" | "recipe" | null | undefined' is not assignable to type 'ProductType | undefined'.
+        Type 'null' is not assignable to type 'ProductType | undefined'.
+[2025-10-03 00:40:14] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 00:40:14] Installing dependencies and building the project...
+[2025-10-03 00:40:37] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/InventoryProducts.tsx(431,14): error TS2322: Type '{ barcode: string | undefined; saleMode: "PER_UNIT" | "BY_WEIGHT" | undefined; id: number; sku: string; name: string; category?: string | null | undefined; categoryId?: number | null | undefined; ... 9 more ...; productType?: "SINGLE" | ... 4 more ... | undefined; } | undefined' is not assignable to type 'Partial<ProductDraft> | undefined'.
+  Type '{ barcode: string | undefined; saleMode: "PER_UNIT" | "BY_WEIGHT" | undefined; id: number; sku: string; ... 12 more ...; productType?: "SINGLE" | "RECIPE" | "single" | "recipe" | null; }' is not assignable to type 'Partial<ProductDraft>'.
+    Types of property 'productType' are incompatible.
+      Type '"SINGLE" | "RECIPE" | "single" | "recipe" | null | undefined' is not assignable to type 'ProductType | undefined'.
+        Type 'null' is not assignable to type 'ProductType | undefined'.
+[2025-10-03 01:01:57] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 01:01:57] Installing dependencies and building the project...
+[2025-10-03 01:02:13] Error: npm run build failed. Check build.log for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/pages/InventoryProducts.tsx(188,8): error TS1117: An object literal cannot have multiple properties with the same name.
+src/pages/InventoryProducts.tsx(258,8): error TS1117: An object literal cannot have multiple properties with the same name.
+[2025-10-03 01:05:35] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-03 01:05:35] Installing dependencies and building the project...
+[2025-10-03 01:06:14] Build completed successfully. Output directory: dist
+[2025-10-03 01:06:14] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-03 01:07:09] Files transferred successfully
+[2025-10-03 01:07:09] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-03 01:07:09] Error: SSH commands failed
+[2025-10-03 13:46:32] Entering project dir: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 13:46:33] Installing deps (npm ci if lockfile exists)…
+[2025-10-03 13:47:00] npm ci failed
+npm error code EPERM
+npm error syscall unlink
+npm error path C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal\node_modules\@esbuild\win32-x64\esbuild.exe
+npm error errno -4048
+npm error [Error: EPERM: operation not permitted, unlink 'C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal\node_modules\@esbuild\win32-x64\esbuild.exe'] {
+npm error   errno: -4048,
+npm error   code: 'EPERM',
+npm error   syscall: 'unlink',
+npm error   path: 'C:\\Users\\nonofoS\\IdeaProjects\\ipachi-pos-portal\\ipachi-pos-portal\\node_modules\\@esbuild\\win32-x64\\esbuild.exe'
+npm error }
+npm error
+npm error The operation was rejected by your operating system.
+npm error It's possible that the file was already in use (by a text editor or antivirus),
+npm error or that you lack permissions to access it.
+npm error
+npm error If you believe this might be a permissions issue, please double-check the
+npm error permissions of the file and its containing directories, or try running
+npm error the command again as root/Administrator.
+npm error A complete log of this run can be found in: C:\Users\nonofoS\AppData\Local\npm-cache\_logs\2025-10-03T11_46_35_221Z-debug-0.log
+[2025-10-03 13:54:13] Entering project dir: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 13:54:14] Installing deps (npm ci if lockfile exists)…
+[2025-10-03 13:54:18] npm ci failed
+npm error code EUSAGE
+npm error
+npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+npm error
+npm error Invalid: lock file's yaml@1.10.2 does not satisfy yaml@2.8.1
+npm error Missing: yaml@1.10.2 from lock file
+npm error
+npm error Clean install a project
+npm error
+npm error Usage:
+npm error npm ci
+npm error
+npm error Options:
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+npm error
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error Run "npm help ci" for more info
+npm error A complete log of this run can be found in: C:\Users\nonofoS\AppData\Local\npm-cache\_logs\2025-10-03T11_54_15_896Z-debug-0.log
+[2025-10-03 13:56:42] Entering project dir: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 13:56:42] Installing deps (npm ci if lockfile exists)…
+[2025-10-03 13:58:07] Building production bundle…
+[2025-10-03 13:58:33] Build OK. Output: dist
+[2025-10-03 13:58:33] Preparing server (installing nginx if needed, creating dirs, configuring site)…
+[2025-10-03 14:21:59] Entering project dir: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:21:59] Installing deps (npm ci if lockfile exists)…
+[2025-10-03 14:24:09] Building production bundle…
+[2025-10-03 14:24:34] Build OK. Output: dist
+[2025-10-03 14:24:35] Preparing server (installing nginx if needed, creating dirs, configuring site)…
+[2025-10-03 14:30:47] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:30:47] Installing dependencies and building the project…
+[2025-10-03 14:31:21] Build completed successfully. Output: dist
+[2025-10-03 14:31:22] Packaging build into /tmp/ipachi-pos-1759494681.tgz
+[2025-10-03 14:31:22] Uploading bundle via PSCP to root@159.223.202.97:/tmp/ipachi-pos.tgz
+[2025-10-03 14:31:44] Error: PSCP transfer failed. See scp.log
+FATAL ERROR: Network error: Connection timed out
+[2025-10-03 14:32:02] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:32:02] Installing dependencies and building the project…
+[2025-10-03 14:32:35] Build completed successfully. Output: dist
+[2025-10-03 14:32:35] Packaging build into /tmp/ipachi-pos-1759494755.tgz
+[2025-10-03 14:32:36] Uploading bundle via PSCP to root@159.223.202.97:/tmp/ipachi-pos.tgz
+[2025-10-03 14:32:57] Error: PSCP transfer failed. See scp.log
+FATAL ERROR: Network error: Connection timed out
+[2025-10-03 14:36:27] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:36:27] Installing dependencies and building the project…
+[2025-10-03 14:37:33] Build completed successfully. Output: dist
+[2025-10-03 14:37:34] Packaging build into /tmp/ipachi-pos-1759495054.tgz
+[2025-10-03 14:37:35] Uploading bundle via PSCP to root@54.146.245.164:/tmp/ipachi-pos.tgz
+[2025-10-03 14:37:39] Error: PSCP transfer failed. See scp.log
+unable to initialise SFTP: could not connect
+[2025-10-03 14:40:12] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:40:12] Installing dependencies and building the project…
+[2025-10-03 14:40:59] Build completed successfully. Output: dist
+[2025-10-03 14:40:59] Checking SSH connectivity to root@54.146.245.164:22 …
+[2025-10-03 14:41:01] Cannot reach SSH on 54.146.245.164:22. See plink_check.log for details.
+[2025-10-03 14:41:02] Hints: open port 22 in cloud firewall / Security Group to your IP; ensure UFW allows OpenSSH; verify SERVER_HOST & SSH_PORT.
+[2025-10-03 14:42:08] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 14:42:08] Installing dependencies and building the project…
+[2025-10-03 14:42:47] Build completed successfully. Output: dist
+[2025-10-03 14:42:47] Checking SSH connectivity to ubuntu@54.146.245.164:22 …
+[2025-10-03 14:42:51] Packaging build into /tmp/ipachi-pos-1759495371.tgz
+[2025-10-03 14:42:52] Uploading bundle via PSCP to ubuntu@54.146.245.164:/tmp/ipachi-pos.tgz
+[2025-10-03 14:43:01] Upload complete.
+[2025-10-03 14:43:01] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-03 14:43:06] Deployment completed successfully. Visit: http://54.146.245.164/
+[2025-10-03 16:55:35] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 16:55:35] Installing dependencies and building the project…
+[2025-10-03 16:56:16] Build completed successfully. Output: dist
+[2025-10-03 16:56:17] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-03 16:56:21] Packaging build into /tmp/ipachi-pos-1759503381.tgz
+[2025-10-03 16:56:22] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-03 16:56:30] Upload complete.
+[2025-10-03 16:56:30] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-03 16:56:35] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-03 18:14:10] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 18:14:10] Installing dependencies and building the project…
+[2025-10-03 18:14:55] Build completed successfully. Output: dist
+[2025-10-03 18:14:55] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-03 18:14:59] Packaging build into /tmp/ipachi-pos-1759508099.tgz
+[2025-10-03 18:15:00] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-03 18:15:08] Upload complete.
+[2025-10-03 18:15:08] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-03 18:15:12] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-03 21:59:30] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 21:59:30] Installing dependencies and building the project…
+[2025-10-03 22:00:21] Build completed successfully. Output: dist
+[2025-10-03 22:00:21] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-03 22:00:26] Packaging build into /tmp/ipachi-pos-1759521625.tgz
+[2025-10-03 22:00:27] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-03 22:00:37] Upload complete.
+[2025-10-03 22:00:38] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-03 22:00:42] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-03 22:05:46] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-03 22:05:46] Installing dependencies and building the project…
+[2025-10-03 22:06:37] Build completed successfully. Output: dist
+[2025-10-03 22:06:37] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-03 22:06:42] Packaging build into /tmp/ipachi-pos-1759522002.tgz
+[2025-10-03 22:06:43] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-03 22:06:53] Upload complete.
+[2025-10-03 22:06:53] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-03 22:06:58] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-04 00:18:55] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-04 00:18:55] Installing dependencies and building the project…
+[2025-10-04 00:19:38] Build completed successfully. Output: dist
+[2025-10-04 00:19:38] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-04 00:19:43] Packaging build into /tmp/ipachi-pos-1759529983.tgz
+[2025-10-04 00:19:43] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-04 00:19:51] Upload complete.
+[2025-10-04 00:19:51] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-04 00:19:55] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-04 14:45:58] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-04 14:45:58] Installing dependencies and building the project…
+[2025-10-04 14:47:19] Build completed successfully. Output: dist
+[2025-10-04 14:47:20] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-04 14:47:24] Packaging build into /tmp/ipachi-pos-1759582044.tgz
+[2025-10-04 14:47:26] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-04 14:47:39] Upload complete.
+[2025-10-04 14:47:39] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-04 14:47:44] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 03:24:51] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 03:24:52] Installing dependencies and building the project…
+[2025-10-05 03:25:22] Error: npm run build failed. Check build.log
+
+up to date, audited 551 packages in 4s
+
+89 packages are looking for funding
+  run `npm fund` for details
+
+3 vulnerabilities (2 moderate, 1 high)
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+> ipachi-pos-portal@0.0.1 build
+> tsc -b && vite build
+
+src/utils.ts(7,10): error TS2686: 'React' refers to a UMD global, but the current file is a module. Consider adding an import instead.
+[2025-10-05 03:26:18] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 03:26:19] Installing dependencies and building the project…
+[2025-10-05 03:27:02] Build completed successfully. Output: dist
+[2025-10-05 03:27:02] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 03:27:06] Packaging build into /tmp/ipachi-pos-1759627626.tgz
+[2025-10-05 03:27:07] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 03:27:13] Upload complete.
+[2025-10-05 03:27:13] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 03:27:17] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 12:12:58] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 12:12:59] Installing dependencies and building the project…
+[2025-10-05 12:14:00] Build completed successfully. Output: dist
+[2025-10-05 12:14:00] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 12:14:04] Packaging build into /tmp/ipachi-pos-1759659244.tgz
+[2025-10-05 12:14:06] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 12:14:14] Upload complete.
+[2025-10-05 12:14:14] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 12:14:18] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 13:04:27] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 13:04:27] Installing dependencies and building the project…
+[2025-10-05 13:05:07] Build completed successfully. Output: dist
+[2025-10-05 13:05:07] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 13:05:14] Packaging build into /tmp/ipachi-pos-1759662314.tgz
+[2025-10-05 13:05:15] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 13:05:39] Upload complete.
+[2025-10-05 13:05:39] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 13:05:46] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 18:50:25] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 18:50:26] Installing dependencies and building the project…
+[2025-10-05 18:51:03] Build completed successfully. Output: dist
+[2025-10-05 18:51:04] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 18:51:09] Packaging build into /tmp/ipachi-pos-1759683068.tgz
+[2025-10-05 18:51:09] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 18:51:19] Upload complete.
+[2025-10-05 18:51:19] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 18:51:25] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 19:02:42] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 19:02:42] Installing dependencies and building the project…
+[2025-10-05 19:03:45] Build completed successfully. Output: dist
+[2025-10-05 19:03:46] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 19:03:50] Packaging build into /tmp/ipachi-pos-1759683830.tgz
+[2025-10-05 19:03:51] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 19:03:58] Upload complete.
+[2025-10-05 19:03:59] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 19:04:08] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-05 19:18:56] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-05 19:18:56] Installing dependencies and building the project…
+[2025-10-05 19:19:53] Build completed successfully. Output: dist
+[2025-10-05 19:19:53] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-05 19:19:57] Packaging build into /tmp/ipachi-pos-1759684797.tgz
+[2025-10-05 19:19:58] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-05 19:20:06] Upload complete.
+[2025-10-05 19:20:06] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-05 19:20:12] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-06 00:28:29] Navigating to project directory: /c/Users/nonofoS/IdeaProjects/ipachi-pos-portal/ipachi-pos-portal
+[2025-10-06 00:28:29] Installing dependencies and building the project…
+[2025-10-06 00:29:36] Build completed successfully. Output: dist
+[2025-10-06 00:29:36] Checking SSH connectivity to ubuntu@54.234.22.100:22 …
+[2025-10-06 00:29:40] Packaging build into /tmp/ipachi-pos-1759703379.tgz
+[2025-10-06 00:29:40] Uploading bundle via PSCP to ubuntu@54.234.22.100:/tmp/ipachi-pos.tgz
+[2025-10-06 00:29:47] Upload complete.
+[2025-10-06 00:29:47] Applying permissions, deploying files, and restarting Nginx on the server…
+[2025-10-06 00:29:51] Deployment completed successfully. Visit: http://54.234.22.100/
+[2025-10-07 13:59:26] Navigating to project directory: C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal
+[2025-10-07 13:59:26] Installing dependencies and building the project...
+[2025-10-07 14:00:07] Build completed successfully. Output directory: dist
+[2025-10-07 14:00:08] Transferring files to root@159.223.202.97:/var/www/ipachi-pos...
+[2025-10-07 14:01:17] Files transferred successfully
+[2025-10-07 14:01:17] Setting permissions and restarting Nginx on 159.223.202.97...
+[2025-10-07 14:01:18] Error: SSH commands failed

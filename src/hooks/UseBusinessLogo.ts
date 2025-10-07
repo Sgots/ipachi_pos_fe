@@ -19,14 +19,18 @@ export const useBusinessLogo = (
   const FILE_PREFIX = "/api/business-profile/logo/file/";
   const DEFAULT_ENDPOINT = "/api/business-profile/logo";
 
-  const resolveAssetUrl = (path?: string | null) => {
-    if (!path) return "";
-    if (/^https?:\/\//i.test(path)) return path; // already absolute
-    const axiosBase = (client as any).defaults?.baseURL ?? "";
-    return axiosBase
-      ? axiosBase.replace(/\/$/, "") + path
-      : `${window.location.protocol}//${window.location.hostname}:8080${path}`;
-  };
+const resolveAssetUrl = (path?: string | null) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path; // absolute stays absolute
+
+  const base = (client as any).defaults?.baseURL;
+  if (typeof base === "string" && base.trim() !== "") {
+    return base.replace(/\/+$/, "") + (path.startsWith("/") ? path : `/${path}`);
+  }
+  // same-origin (nginx on 80/443 will proxy /api)
+  return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+};
+
 
   const buildPath = () => {
     if (logoUrl && logoUrl.trim()) return logoUrl.trim();

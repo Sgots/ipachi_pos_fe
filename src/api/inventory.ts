@@ -1,8 +1,11 @@
 // src/api/inventory.ts
 import { api } from "./client";
-import { endpoints, type CategoryDTO, type CategoryCreate, type CategoryUpdate,
+import {
+  endpoints,
+  type CategoryDTO, type CategoryCreate, type CategoryUpdate,
   type MeasurementDTO, type MeasurementCreate, type MeasurementUpdate,
-  type ProductDTO, type ProductCreate, type ProductUpdate } from "./endpoints";
+  type ProductDTO, type ProductCreate, type ProductUpdate, type ProductSaleMode
+} from "./endpoints";
 
 // ---------- Endpoint bases ----------
 const PRODUCTS_BASE = endpoints.inventory?.products ?? "/api/inventory/products";
@@ -10,12 +13,11 @@ const MEAS_BASE      = endpoints.inventory?.measurements ?? "/api/inventory/meas
 const CATS_BASE      = endpoints.inventory?.categories ?? "/api/inventory/categories";
 const RECEIPTS_BASE  = endpoints.inventory?.receipts ?? "/api/inventory/receipts";
 const STOCK_BASE     = endpoints.inventory?.stock ?? "/api/inventory/stock";
-const RESTOCK_HISTORY_BASE = endpoints.inventory?.restockHistory ?? "/api/inventory/restock-history"; // New endpoint
-// src/api/inventory.ts
+const RESTOCK_HISTORY_BASE = endpoints.inventory?.restockHistory ?? "/api/inventory/restock-history";
 
-// export a tiny helper
-export const qrDownloadUrl = (id: number) => `${PRODUCTS_BASE}/${id}/qr.png`;
-
+// tiny helper
+export const qrDownloadUrl = (id: number) => `${PRODUCTS_BASE}/${id}/qr`;
+export type AdjustQuantityResponse = RestockResponse;
 const componentsPath = (id: number) =>
   endpoints.inventory?.components?.(id) ?? `${PRODUCTS_BASE}/${id}/components`;
 
@@ -23,50 +25,79 @@ const restockPath = (id: number) =>
   endpoints.inventory?.restock?.(id) ?? `${PRODUCTS_BASE}/${id}/restock`;
 
 // ---------- Restock History (NEW) ----------
-// src/api/inventory.ts
+export interface ReceiptSummaryRow {
+  receiptId: number;
+  receiptAt: string;          // ISO datetime
+  label: string;
+  uploadedBy: string;
+  hasFile: boolean;
+  fileUrl: string | null;
 
-export interface RestockHistoryRow {
-    receiptId: number;
-    receiptAt: string;          // ISO datetime
-    label: string;
-    uploadedBy: string;
-    hasFile: boolean;
-    fileUrl: string | null;
-
-    openingValue: number;       // using selling price w/out VAT
-    newValue: number;
-    closingValue: number;
+  openingValue: number;       // using selling price w/out VAT
+  newValue: number;
+  closingValue: number;
 }
 
 export interface ReceiptItemRow {
-    productId: number;
-    sku: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    value: number;
+  productId: number;
+  sku: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  value: number;
 }
-
-export async function fetchRestockHistory(q?: string, from?: string, to?: string): Promise<RestockHistoryRow[]> {
-    const { data } = await api.get<RestockHistoryRow[]>(endpoints.inventory.restockHistory, { params: { q, from, to } });
-    return data.map(d => ({
-        ...d,
-        openingValue: Number(d.openingValue),
-        newValue: Number(d.newValue),
-        closingValue: Number(d.closingValue),
-    }));
+// add near the other helpers
+export async function fetchProductImage(id: number): Promise<Blob> {
+  const { data } = await api.get(`${PRODUCTS_BASE}/${id}/image`, {
+    responseType: "blob",
+  });
+  return data as Blob;
+}
+export async function setProductQuantity(
+  productId: number,
+  quantity: number,
+  note?: string
+): Promise<AdjustQuantityResponse> {
+  const { data } = await api.post<AdjustQuantityResponse>(`${PRODUCTS_BASE}/${productId}/quantity`, {
+    quantity,
+    note: note ?? null,
+  });
+  return data;
+}
+export async function fetchRestockHistory(q?: string, from?: string, to?: string): Promise<ReceiptSummaryRow[]> {
+  const { data } = await api.get<ReceiptSummaryRow[]>(RESTOCK_HISTORY_BASE, { params: { q, from, to } });
+  return data.map(d => ({
+    ...d,
+    openingValue: Number(d.openingValue),
+    newValue: Number(d.newValue),
+    closingValue: Number(d.closingValue),
+  }));
 }
 
 export async function fetchReceiptItems(receiptId: number): Promise<ReceiptItemRow[]> {
-    const { data } = await api.get<ReceiptItemRow[]>(`/api/inventory/receipts/${receiptId}/items`);
-    return data.map(x => ({ ...x, quantity: Number(x.quantity), unitPrice: Number(x.unitPrice), value: Number(x.value) }));
+  const { data } = await api.get<ReceiptItemRow[]>(`${RECEIPTS_BASE}/${receiptId}/items`);
+  return data.map(x => ({
+    ...x,
+    quantity: Number(x.quantity),
+    unitPrice: Number(x.unitPrice),
+    value: Number(x.value),
+  }));
 }
+
 // Download QR PNG as a Blob (uses axios instance with auth headers)
 export async function fetchQrPng(id: number): Promise<Blob> {
-    const { data } = await api.get(`${PRODUCTS_BASE}/${id}/qr.png`, {
-        responseType: "blob",
-    });
-    return data as Blob;
+  const { data } = await api.get(`${PRODUCTS_BASE}/${id}/qr`, {
+    responseType: "blob",
+  });
+  return data as Blob;
+}
+
+// ---------- Receipt file (open with auth) ----------
+export async function fetchReceiptFile(receiptId: number): Promise<Blob> {
+  const { data } = await api.get(`${RECEIPTS_BASE}/${receiptId}/file`, {
+    responseType: "blob",
+  });
+  return data as Blob;
 }
 
 // ---------- Categories ----------
@@ -170,8 +201,8 @@ export type ProductComponentDTO = {
   unitName?: string | null;
   unitAbbr?: string | null;
   measurement: string;
-  unitCost: string;
-  lineCost: string;
+  unitCost: string | number;
+  lineCost: string | number;
 };
 export async function componentsOfProduct(id: number) {
   const { data } = await api.get<ProductComponentDTO[]>(componentsPath(id));

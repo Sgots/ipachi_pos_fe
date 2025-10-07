@@ -66,6 +66,7 @@ interface AuthContextType {
     /** Hydration gates */
     permsHydrated: boolean; // permissions fetched (or at least restored from cache)
     hydrated: boolean;      // full app boot ready (waits on permsHydrated)
+    refreshPermissions: () => Promise<void>; // Add this
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -425,6 +426,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             logout,
             permsHydrated,
             hydrated,
+            refreshPermissions, // Add this
         }),
         [
             user,

@@ -14,7 +14,7 @@ import {
     fetchRestockHistory,
     uploadStockReceipt,
     fetchReceiptItems,
-    type RestockHistoryRow
+    fetchReceiptFile,
 } from "../api/inventory";
 import InventoryTabs from "./InventoryTabs";
 import StockReceiptDialog from "./StockReceiptDialog";
@@ -26,6 +26,16 @@ type ReceiptItemRow = {
     quantity: number;
     unitPrice: number;
     value: number;
+};
+type RestockHistoryRow = {
+  receiptId: number;
+  receiptAt: string;        // ISO date-time
+  label: string;
+  openingValue: number;
+  newValue: number;
+  closingValue: number;
+  uploadedBy: string;
+  hasFile: boolean;
 };
 
 const RestockHistory: React.FC = () => {
@@ -49,7 +59,28 @@ const RestockHistory: React.FC = () => {
     const [itemsLoading, setItemsLoading] = useState(false);
     const [items, setItems] = useState<ReceiptItemRow[]>([]);
     const [activeReceipt, setActiveReceipt] = useState<{ id: number; label: string } | null>(null);
-
+const openReceiptFile = async (receiptId: number) => {
+  try {
+    const blob = await fetchReceiptFile(receiptId);
+    const url = URL.createObjectURL(blob);
+    // Try to open in a new tab
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (!w) {
+      // fallback: trigger a download (popup blocked or non-PDF)
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `receipt-${receiptId}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    // cleanup a bit later
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    console.error("Failed to open receipt file", e);
+    setToast("Failed to open receipt file");
+  }
+};
     const fmt = (n: number | string) =>
         new Intl.NumberFormat(undefined, {
             style: "currency",
@@ -215,17 +246,16 @@ const RestockHistory: React.FC = () => {
                                             >
                                                 View items
                                             </Button>
-                                            {r.hasFile && r.fileUrl && (
-                                                <Button
-                                                    size="small"
-                                                    variant="outlined"
-                                                    href={r.fileUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    View receipt
-                                                </Button>
-                                            )}
+                                       {r.hasFile && (
+                                         <Button
+                                           size="small"
+                                           variant="outlined"
+                                           onClick={() => openReceiptFile(r.receiptId)}
+                                         >
+                                           View receipt
+                                         </Button>
+                                       )}
+
                                         </Stack>
                                     </TableCell>
                                 </TableRow>

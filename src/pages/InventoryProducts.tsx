@@ -22,23 +22,36 @@ import {
     qrDownloadUrl,fetchQrPng,
 } from "../api/inventory";
 
+// Extend the table row type
 interface ProductRow {
-    id: number;
-    sku: string;
-    barcode?: string | null;
-    name: string;
-    category?: string | null;
-    categoryId?: number | null;
-    unit?: string | null;
-    unitId?: number | null;
-    buyPrice: number;   // per-unit (always)
-    sellPrice: number;
-    imageUrl?: string | null;
-    hasQr?: boolean;
-    qrUrl?: string | null;
+  id: number;
+  sku: string;
+  barcode?: string | null;
+  name: string;
+  category?: string | null;
+  categoryId?: number | null;
+  unit?: string | null;
+  unitId?: number | null;
+  buyPrice: number;
+  sellPrice: number;
+  imageUrl?: string | null;
+    hasImage?: boolean;
+  hasQr?: boolean;
+  qrUrl?: string | null;
+  // ✅ needed for dialog prefill
+  lifetime?: number | null;
+  lowStock?: number | null;
+  saleMode?: "PER_UNIT" | "BY_WEIGHT" | null;
+    productType?: "SINGLE" | "RECIPE" | "single" | "recipe" | null;
+      productsMade?: number | null;
 }
 
 type Option = { id: number; name: string; abbr?: string };
+// put this small helper near the top of the component file
+const normalizeProductType = (t?: string | null): "single" | "recipe" | undefined => {
+  const v = (t ?? "").toString().toLowerCase();
+  return v === "recipe" ? "recipe" : v === "single" ? "single" : undefined;
+};
 
 const InventoryProducts: React.FC = () => {
     const { can } = useAuth();
@@ -63,6 +76,44 @@ const InventoryProducts: React.FC = () => {
     const [previewFor, setPreviewFor] = useState<{ id: number; name: string } | null>(null);
     const [previewItems, setPreviewItems] = useState<any[]>([]);
     const [previewLoading, setPreviewLoading] = useState(false);
+const openEditor = async (row: ProductRow) => {
+  // If it’s a recipe, fetch its ingredients; otherwise open directly
+  const isRecipe =
+    (row.productType ?? "").toString().toUpperCase() === "RECIPE";
+
+  if (isRecipe) {
+    try {
+      const items = await componentsOfProduct(row.id);
+      const lines = mapComponentsForDialog(items);
+
+      // Pass components into initial so dialog shows them
+      setEditing({
+        ...row,
+        // these keep union types happy in the dialog initial
+        barcode: row.barcode ?? undefined,
+        saleMode: (row.saleMode ?? undefined) as "PER_UNIT" | "BY_WEIGHT" | undefined,
+        // ✅ provide components for the dialog
+        // (ProductDialog will normalize them)
+        // @ts-ignore - allowed; dialog accepts Partial<ProductDraft>
+        components: lines,
+        // normalize productType to dialog’s expectation
+        productType: "recipe",
+                productsMade: row.productsMade ?? null,
+      } as any);
+    } catch (e: any) {
+      setErr(e?.response?.data?.message || "Failed to load product ingredients");
+      // still open editor without components as a fallback
+      setEditing({
+        ...row,
+        productType: "recipe",
+      } as any);
+    }
+  } else {
+    setEditing(row);
+  }
+
+  setOpen(true);
+};
 
     const loadOptions = async () => {
         if (!CAN_VIEW) return;
@@ -90,65 +141,26 @@ const InventoryProducts: React.FC = () => {
         }
     };
 
-    const refresh = async () => {
-        if (!CAN_VIEW) return;
-        setLoading(true);
-        try {
-            if (!catOptions.length || !unitOptions.length) {
-                await loadOptions();
-            }
-            const page = await listProducts(query || undefined, 0, 200);
-
-            const mapped: ProductRow[] = (page.content ?? []).map((p: any) => {
-                const categoryName =
-                    p.categoryName ??
-                    (typeof p.categoryId === "number"
-                        ? catOptions.find(c => c.id === p.categoryId)?.name ?? null
-                        : null);
-
-                const unitName =
-                    p.unitName ??
-                    (typeof p.unitId === "number"
-                        ? unitOptions.find(u => u.id === p.unitId)?.name ?? null
-                        : null);
-                const unitAbbr =
-                    p.unitAbbr ??
-                    (typeof p.unitId === "number"
-                        ? unitOptions.find(u => u.id === p.unitId)?.abbr ?? null
-                        : null);
-                const unitLabel = unitName ? `${unitName}${unitAbbr ? ` (${unitAbbr})` : ""}` : null;
-
-                const buy = Number(p.buyPrice); // per-unit
-
-                // Determine QR availability + URL with safe fallbacks
-                const inferredQrUrl = p.qrUrl ?? qrDownloadUrl(p.id);
-
-                const hasQr = !!(p.hasQrCode || p.qrUrl || p.barcode); // last resort if backend not yet updated
-
-                return {
-                    id: p.id,
-                    sku: p.sku,
-                    barcode: p.barcode ?? null,
-                    name: p.name,
-                    category: categoryName ?? null,
-                    categoryId: p.categoryId ?? null,
-                    unit: unitLabel,
-                    unitId: p.unitId ?? null,
-                    buyPrice: buy,
-                    sellPrice: Number(p.sellPrice),
-                    imageUrl: p.imageUrl ?? null,
-                    hasQr,
-                    qrUrl: inferredQrUrl,
-                };
-            });
-
-            setRows(mapped);
-        } catch (e: any) {
-            setErr(e?.response?.data?.message || "Failed to load products");
-        } finally {
-            setLoading(false);
-        }
-    };
+   const refresh = async () => {
+     if (!CAN_VIEW) return;
+     setLoading(true);
+     try {
+       if (!catOptions.length || !unitOptions.length) {
+         await loadOptions();
+       }
+       const page = await listProducts(query || undefined, 0, 200);
+       setRows((page.content ?? []).map(toRow)); // ✅ no undefined vars now
+       setErr(null);
+     } catch (e: any) {
+       const msg =
+         e?.response?.data?.message ||
+         e?.message ||
+         "Failed to load products";
+       setErr(msg);
+     } finally {
+       setLoading(false);
+     }
+   };
 
     useEffect(() => {
         refresh();
@@ -161,6 +173,14 @@ const InventoryProducts: React.FC = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
+// Map BE component DTOs -> dialog IngredientLine
+const mapComponentsForDialog = (items: any[]) =>
+  (items ?? []).map((c: any) => ({
+    id: String(c.id ?? `${Date.now()}-${Math.random().toString(36).slice(2,8)}`),
+    name: String(c.productName ?? c.name ?? ""),
+    measurement: String(c.measurement ?? ""),
+    unitCost: Number(c.unitCost ?? 0),
+  }));
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -172,29 +192,38 @@ const InventoryProducts: React.FC = () => {
         );
     }, [rows, query]);
 
-    const toRow = (p: any): ProductRow => {
-        const unitLabel = p.unitName ? `${p.unitName}${p.unitAbbr ? ` (${p.unitAbbr})` : ""}` : null;
-        const buy = Number(p.buyPrice);
+  const toRow = (p: any): ProductRow => {
+    const unitLabel = p.unitName ? `${p.unitName}${p.unitAbbr ? ` (${p.unitAbbr})` : ""}` : null;
+    const inferredQrUrl = p.qrUrl ?? qrDownloadUrl(p.id);
+    const hasQr = !!(p.hasQrCode || p.qrUrl || p.barcode);
 
-        const inferredQrUrl = p.qrUrl ?? qrDownloadUrl(p.id);
-        const hasQr = !!(p.hasQrCode || p.qrUrl || p.barcode);
+    // ✅ DEFINE isRecipe here too
+    const isRecipe = String(p.productType ?? "").toUpperCase() === "RECIPE";
 
-        return {
-            id: p.id,
-            sku: p.sku,
-            barcode: p.barcode ?? null,
-            name: p.name,
-            category: p.categoryName ?? null,
-            categoryId: (p as any).categoryId ?? null,
-            unit: unitLabel,
-            unitId: (p as any).unitId ?? null,
-            buyPrice: buy,
-            sellPrice: Number(p.sellPrice),
-            imageUrl: p.imageUrl ?? null,
-            hasQr,
-            qrUrl: inferredQrUrl,
-        };
+    return {
+      id: p.id,
+      sku: p.sku,
+      barcode: p.barcode ?? null,
+      name: p.name,
+      category: p.categoryName ?? null,
+      categoryId: p.categoryId ?? null,
+      unit: unitLabel,
+      unitId: p.unitId ?? null,
+      buyPrice: Number(p.buyPrice),
+      sellPrice: Number(p.sellPrice),
+      imageUrl: p.imageUrl ?? null,
+      hasImage: !!p.hasImage,
+      hasQr,
+      qrUrl: inferredQrUrl,
+      lifetime: p.lifetime ?? null,
+      lowStock: p.lowStock ?? null,
+      saleMode: (p.saleMode as "PER_UNIT" | "BY_WEIGHT" | null) ?? null,
+      productType: (p.productType as any) ?? null,
+      // ✅ safe use now
+      productsMade: isRecipe ? (p.productsMade != null ? Number(p.productsMade) : null) : null,
     };
+  };
+
 
     const openPreview = async (row: ProductRow) => {
         if (!CAN_VIEW) return;
@@ -311,9 +340,10 @@ const InventoryProducts: React.FC = () => {
                                     <TableCell>{p.buyPrice.toFixed(2)}</TableCell>
                                     <TableCell>{p.sellPrice.toFixed(2)}</TableCell>
                                     <TableCell>{profit}</TableCell>
-                                    <TableCell style={{ color: p.imageUrl ? "#2e7d32" : "#d32f2f" }}>
-                                        {p.imageUrl ? "yes" : "no"}
+                                    <TableCell style={{ color: p.hasImage ? "#2e7d32" : "#d32f2f" }}>
+                                      {p.hasImage ? "yes" : "no"}
                                     </TableCell>
+
                                     <TableCell>
                                         {p.hasQr ? (
                                             <Button size="small" onClick={() => handleDownloadQr(p)}>
@@ -328,16 +358,18 @@ const InventoryProducts: React.FC = () => {
                                         <Button size="small" onClick={() => openPreview(p)}>
                                             Preview ingredients
                                         </Button>
-                                        <Tooltip title={CAN_EDIT ? "Edit" : "No permission"}>
-                      <span>
-                        <IconButton size="small"
-                                    onClick={() => { if (CAN_EDIT) { setEditing(p); setOpen(true); } }}
-                                    disabled={!CAN_EDIT}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                                        </Tooltip>
+                      <Tooltip title={CAN_EDIT ? "Edit" : "No permission"}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => { if (CAN_EDIT) openEditor(p); }}
+                            disabled={!CAN_EDIT}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+
                                         <Tooltip title={CAN_DELETE ? "Delete" : "No permission"}>
                       <span>
                         <IconButton size="small" color="error"
@@ -361,84 +393,114 @@ const InventoryProducts: React.FC = () => {
             </Paper>
 
             {/* Product editor modal */}
-            <ProductDialog
-                open={open}
-                initial={editing ? { ...editing, barcode: editing.barcode ?? undefined } : undefined}
-                categories={catOptions}
-                units={unitOptions}
-                onClose={() => setOpen(false)}
-                onSave={async (payload: any) => {
-                    // write-guard
-                    if (editing && !CAN_EDIT) { setErr("You don't have permission to edit products."); return; }
-                    if (!editing && !CAN_CREATE) { setErr("You don't have permission to create products."); return; }
+           {/* Product editor modal */}
+           <ProductDialog
+             open={open}
+             initial={
+               editing
+                 ? {
+                     // ✅ pass only fields the dialog expects, and normalize types
+                     id: editing.id,
+                     name: editing.name,
+                     sku: editing.sku,
+                     barcode: editing.barcode ?? undefined,
+                     categoryId: editing.categoryId ?? null,
+                     unitId: editing.unitId ?? null,
+                     lifetime: editing.lifetime ?? null,
+                     lowStock: editing.lowStock ?? null,
+                     buyPrice: editing.buyPrice,
+                     sellPrice: editing.sellPrice,
+                     saleMode: (editing.saleMode ?? undefined) as "PER_UNIT" | "BY_WEIGHT" | undefined,
+                     imageUrl: editing.imageUrl ?? undefined,
+                     productType: normalizeProductType(editing.productType),
+          productsMade: editing.productsMade ?? undefined,
+                     // If openEditor attached pre-fetched components, keep them.
+                     // TS in ProductDialog accepts components in Partial<ProductDraft>,
+                     // but our local type doesn't know it, so we hint the compiler:
+                     ...(('components' in (editing as any) && (editing as any).components)
+                       ? { components: (editing as any).components }
+                       : {}),
+                   }
+                 : undefined
+             }
+             categories={catOptions}
+             units={unitOptions}
+             onClose={() => setOpen(false)}
+        onSave={async (payload: any) => {
+          // write-guard
+          if (editing && !CAN_EDIT) { setErr("You don't have permission to edit products."); return; }
+          if (!editing && !CAN_CREATE) { setErr("You don't have permission to create products."); return; }
 
-                    try {
-                        const isRecipe =
-                            payload.productType === "recipe" || payload.productType === "RECIPE";
-                        const hasImage = !!payload.imageFile;
+           try {
+             const isRecipe =
+               (payload.productType === "recipe" || payload.productType === "RECIPE") ||
+               Array.isArray(payload.components);
 
-                        if (isRecipe) {
-                            const body = {
-                                name: String(payload.name || "").trim(),
-                                sku: String(payload.sku || "").trim() || undefined,
-                                barcode: String(payload.barcode || "").trim() || undefined,
-                                categoryId: payload.categoryId ?? null,
-                                unitId: payload.unitId ?? null,
-                                sellPrice: Number(payload.sellPrice),
-                                buyPrice: Number(payload.buyPrice),
-                                lifetime: payload.lifetime ?? null,
-                                lowStock: payload.lowStock ?? null,
-                                saleMode: payload.saleMode ?? undefined,
-                                productType: "RECIPE",
-                                components: (payload.components || []).map((l: any) => ({
-                                    name: String(l.name || "").trim(),
-                                    measurement: String(l.measurement ?? ""),
-                                    unitCost: Number(l.unitCost ?? 0),
-                                })),
-                            };
+             const hasImage = !!payload.imageFile;
 
-                            const created = hasImage
-                                ? await createProductMultipart(body as any, payload.imageFile)
-                                : await createProductJSON(body as any);
+           const commonBody = isRecipe
+             ? {
+                 name: String(payload.name || "").trim(),
+                 sku: String(payload.sku || "").trim() || undefined,
+                 barcode: String(payload.barcode || "").trim() || undefined,
+                 categoryId: payload.categoryId ?? null,
+                 unitId: payload.unitId ?? null,
+                 sellPrice: Number(payload.sellPrice),
+                 buyPrice: Number(payload.buyPrice), // per-unit cost passed in by dialog
+                 lifetime: payload.lifetime ?? null,
+                 lowStock: payload.lowStock ?? null,
+                 saleMode: payload.saleMode ?? undefined,
+                 productType: "RECIPE" as const,
+                 productsMade: Number(payload.productsMade ?? 1), // <-- NEW (yield)
+                 components: (payload.components || []).map((l: any) => ({
+                   name: String(l.name || "").trim(),
+                   measurement: String(l.measurement ?? ""),
+                   unitCost: Number(l.unitCost ?? 0),
+                 })),
+               }
+             : {
+                 sku: String(payload.sku || "").trim(),
+                 barcode: String(payload.barcode || "").trim() || undefined,
+                 name: String(payload.name || "").trim(),
+                 buyPrice: Number(payload.buyPrice),
+                 sellPrice: Number(payload.sellPrice),
+                 categoryId: payload.categoryId ?? null,
+                 unitId: payload.unitId ?? null,
+                 lifetime: payload.lifetime ?? null,
+                 lowStock: payload.lowStock ?? null,
+                 saleMode: payload.saleMode ?? undefined,
+                 productsMade: null, // <-- NEW: explicitly null for non-RECIPE
+               };
 
-                            setRows(prev => [toRow(created), ...prev]);
-                        } else {
-                            const body = {
-                                sku: String(payload.sku || "").trim(),
-                                barcode: String(payload.barcode || "").trim() || undefined,
-                                name: String(payload.name || "").trim(),
-                                buyPrice: Number(payload.buyPrice),
-                                sellPrice: Number(payload.sellPrice),
-                                categoryId: payload.categoryId ?? null,
-                                unitId: payload.unitId ?? null,
-                                lifetime: payload.lifetime ?? null,
-                                lowStock: payload.lowStock ?? null,
-                                saleMode: payload.saleMode ?? undefined,
-                            };
+             if (editing) {
+               // UPDATE
+               if (hasImage) {
+                 await updateProductMultipart(editing.id, commonBody as any, payload.imageFile);
+               } else {
+                 await updateProductJSON(editing.id, commonBody as any);
+               }
+             } else {
+               // CREATE
+               if (hasImage) {
+                 await createProductMultipart(commonBody as any, payload.imageFile);
+               } else {
+                 await createProductJSON(commonBody as any);
+               }
+             }
 
-                            let result: any;
-                            if (editing) {
-                                result = hasImage
-                                    ? await updateProductMultipart(editing.id, body as any, payload.imageFile)
-                                    : await updateProductJSON(editing.id, body as any);
+             // ✅ Always reload the list so imageUrl (and other server-calculated bits) are fresh
+             await refresh();
 
-                                setRows(prev => prev.map(r => (r.id === editing.id ? toRow(result) : r)));
-                            } else {
-                                result = hasImage
-                                    ? await createProductMultipart(body as any, payload.imageFile)
-                                    : await createProductJSON(body as any);
+             setOpen(false);
+             setEditing(null);
+           } catch (e: any) {
+             setErr(e?.response?.data?.message || "Failed to save product");
+           }
+         }}
 
-                                setRows(prev => [toRow(result), ...prev]);
-                            }
-                        }
 
-                        setOpen(false);
-                        setEditing(null);
-                    } catch (e: any) {
-                        setErr(e?.response?.data?.message || "Failed to save product");
-                    }
-                }}
-            />
+           />
+
 
             {/* Ingredients preview dialog */}
             <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} fullWidth maxWidth="sm">

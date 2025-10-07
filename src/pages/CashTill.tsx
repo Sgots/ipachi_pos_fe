@@ -1,4 +1,3 @@
-// src/pages/CashTill.tsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
     Box,
@@ -17,7 +16,6 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Snackbar,
     Alert,
     Chip,
 } from "@mui/material";
@@ -52,8 +50,8 @@ type ProductItem = {
     priceInclVat?: number | null;
     priceExclVat?: number | null;
     vatRateApplied?: number | null;
-
     stock: number;
+      onSpecial?: boolean;   // <-- NEW
     lowStock?: number;
     img?: string;
     saleMode?: ProductSaleMode;
@@ -68,6 +66,33 @@ const CashTill: React.FC = () => {
     const { currentUser, terminalId, can } = useAuth();
     const terminal = terminalId ?? "TERMINAL_001";
     const userId = currentUser?.id ?? 1;
+
+    // Audio context for cash till tone
+    const audioContextRef = useRef<AudioContext | null>(null);
+
+    // Initialize audio context
+    useEffect(() => {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        return () => {
+            audioContextRef.current?.close();
+        };
+    }, []);
+
+    // Function to play cash till tone
+    const playCashTillTone = () => {
+        if (audioContextRef.current) {
+            const oscillator = audioContextRef.current.createOscillator();
+            const gainNode = audioContextRef.current.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1000, audioContextRef.current.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContextRef.current.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.1);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContextRef.current.destination);
+            oscillator.start();
+            oscillator.stop(audioContextRef.current.currentTime + 0.1);
+        }
+    };
 
     // ===== Role-based FRONTEND block for Admins only =====
     const roles = (currentUser?.roles ?? []).map((r) => String(r).toUpperCase());
@@ -111,6 +136,18 @@ const CashTill: React.FC = () => {
 
     // scroll container ref for auto-scroll-to-last
     const listScrollRef = useRef<HTMLDivElement | null>(null);
+// add just below: const listScrollRef = useRef<HTMLDivElement | null>(null);
+const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+    // Auto-close Payment OK dialog
+    useEffect(() => {
+        if (showPaymentOK) {
+            const timer = setTimeout(() => {
+                setShowPaymentOK(false);
+            }, 2500);
+            return () => clearTimeout(timer);
+        }
+    }, [showPaymentOK]);
 
     // Prefer VAT-inclusive price coming from backend (priceInclVat). Fallback to sellPrice/price.
     const normalizeProducts = (payload: any[]): ProductItem[] =>
@@ -143,7 +180,6 @@ const CashTill: React.FC = () => {
                 priceInclVat: priceIncl,
                 priceExclVat: priceExcl ?? null,
                 vatRateApplied: vatRate ?? null,
-
                 stock: Number(p.availableQuantity ?? p.availableQty ?? p.stock ?? p.quantity ?? 0),
                 lowStock: p.lowStock ?? p.low_stock ?? 0,
                 img: p.imageUrl ?? p.imageUrlSmall ?? p.image ?? "",
@@ -151,6 +187,7 @@ const CashTill: React.FC = () => {
                 unitId: p.unitId ?? p.unit_id ?? null,
                 unitAbbr: p.unitAbbr ?? p.unit_abbr ?? p.unitSymbol ?? null,
                 unitName: p.unitName ?? p.unit_name ?? null,
+                      onSpecial: Boolean(p.onSpecial ?? p.on_special ?? false), // <-- NEW
             };
         });
 
@@ -210,6 +247,7 @@ const CashTill: React.FC = () => {
     // Cart management
     const addToCart = async (sku: string) => {
         if (!CAN_EDIT) return;
+        playCashTillTone(); // Play sound when item is added
         try {
             const res = await client.get(endpoints.inventory.lookup(sku), {
                 headers: { "X-User-Id": userId.toString() },
@@ -389,7 +427,7 @@ const CashTill: React.FC = () => {
             setCashReceived("");
             setPaymentRef("");
             setShowPayment(false);
-            setShowPaymentOK(true); // ✅ Payment OK tick
+            setShowPaymentOK(true); // ✅ Payment OK dialog
             await loadAllStock();
             setTimeout(() => setAnimateMap({}), 900);
         } catch (err: any) {
@@ -443,12 +481,12 @@ const CashTill: React.FC = () => {
                     height: "calc(100vh - 120px)",
                 }}
             >
-                {/* Centered Total Due */}
-                <Box sx={{ pb: 1, textAlign: "center" }}>
-                    <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                {/* Left-aligned Total Due, smaller, not bold */}
+                <Box sx={{ pb: 1, textAlign: "left" }}>
+                    <Typography variant="h6">
                         Total Due
                     </Typography>
-                    <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1, mt: 0.5 }}>
+                    <Typography variant="h3" sx={{ fontWeight: 400, lineHeight: 1, mt: 0.5 }}>
                         P {total.toFixed(2)}
                     </Typography>
                 </Box>
@@ -475,12 +513,12 @@ const CashTill: React.FC = () => {
                             return (
                                 <div key={it.sku} className="rounded border p-2">
                                     <div className="flex justify-between text-sm font-medium">
-                    <span>
-                      {it.name}
-                        {it.saleMode === "BY_WEIGHT" && (it.unitAbbr || it.unitName) ? (
-                            <span className="text-gray-500"> • {it.unitAbbr ?? it.unitName}</span>
-                        ) : null}
-                    </span>
+                                        <span>
+                                            {it.name}
+                                            {it.saleMode === "BY_WEIGHT" && (it.unitAbbr || it.unitName) ? (
+                                                <span className="text-gray-500"> • {it.unitAbbr ?? it.unitName}</span>
+                                            ) : null}
+                                        </span>
                                         <span>{lineTotal.toFixed(2)}</span>
                                     </div>
 
@@ -561,27 +599,36 @@ const CashTill: React.FC = () => {
             {/* RIGHT: Products */}
             <Box className="col-span-8 space-y-3">
                 {/* Search and Scan Bar */}
-                <Paper className="p-3 flex items-center gap-3">
-                    <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
-                        <TextField
-                            placeholder="SEARCH"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            fullWidth
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon />
-                                    </InputAdornment>
-                                ),
+
+                        <Paper className="p-3 flex items-center gap-3">
+                            <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
+                                <TextField
+                                    placeholder="SEARCH"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    fullWidth
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    disabled={refreshing}
+                                />
+        <Button
+                            onClick={() => {
+                              setSearch("");
+                              void loadAllStock();
+                              searchInputRef.current?.focus();
                             }}
-                            disabled={refreshing}
-                        />
-                        <Button onClick={() => {}} variant="contained" color="warning" disabled sx={{ minWidth: 120 }}>
-                            SCAN
-                        </Button>
-                    </Stack>
-                </Paper>
+                            variant="contained"
+                            color="warning"
+                            sx={{ minWidth: 120 }}
+                          >                            CLEAR
+                                </Button>
+                            </Stack>
+                        </Paper>
 
                 <Divider />
 
@@ -615,7 +662,9 @@ const CashTill: React.FC = () => {
                                         delete next[p.sku];
                                         return next;
                                     });
+
                                 }}
+                                  onSpecial={p.onSpecial} // <-- NEW
                             />
                         ))
                     )}
@@ -753,23 +802,33 @@ const CashTill: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Payment OK Snackbar */}
-            <Snackbar
+            {/* Payment OK Dialog */}
+            <Dialog
                 open={showPaymentOK}
-                autoHideDuration={2500}
                 onClose={() => setShowPaymentOK(false)}
-                anchorOrigin={{ vertical: "top", horizontal: "center" }}
+                fullWidth
+                maxWidth="sm"
             >
-                <Alert
-                    onClose={() => setShowPaymentOK(false)}
-                    severity="success"
-                    icon={<CheckCircleOutlineIcon fontSize="inherit" />}
-                    variant="filled"
-                    sx={{ fontWeight: 600 }}
-                >
-                    Payment OK
-                </Alert>
-            </Snackbar>
+                <DialogTitle>Payment Successful</DialogTitle>
+                <DialogContent>
+                    <Alert
+                        severity="success"
+                        icon={<CheckCircleOutlineIcon fontSize="large" />}
+                        sx={{ fontWeight: 600, fontSize: '1.25rem', alignItems: 'center' }}
+                    >
+                        Payment OK
+                    </Alert>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setShowPaymentOK(false)}
+                        variant="contained"
+                        color="success"
+                    >
+                        Close
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
