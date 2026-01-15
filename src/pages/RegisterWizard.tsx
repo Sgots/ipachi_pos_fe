@@ -298,7 +298,7 @@ function TermsContent() {
 
 /* -------------------------------- Types & helpers -------------------------------- */
 
-type Step1 = { name: string; surname: string; email?: string; password: string; confirm: string; areaCode: string; phone: string; remember: boolean; news: boolean; };
+type Step1 = { name: string; surname: string; email: string; password: string; confirm: string; areaCode: string; phone: string; remember: boolean; news: boolean; };
 
 // NOTE: we store ISO country code in `country`
 type Step2 = {
@@ -421,32 +421,50 @@ const RegisterWizard: React.FC = () => {
     } catch { /* ignore */ }
   }
 
-  async function sendOtp() {
-    if (!canSendOtp) { setOtpMsg("Enter a valid area code and phone first."); return; }
-    if (otpCooldown > 0 || sendingOtp) return;
+ async function sendOtp(): Promise<boolean> {
+   if (!canSendOtp) {
+     setOtpMsg("Enter a valid area code and phone first.");
+     return false;
+   }
+   if (otpCooldown > 0 || sendingOtp) return false;
 
-    try {
-      setSendingOtp(true);
-      setOtp(""); setOtpVerified(false);
-      await api.post("/api/otp/request", { phone: msisdn });
-      setOtpSent(true);
-      setOtpCooldown(30);
-      setOtpMsg("OTP sent via SMS. Enter it below.");
-    } catch (e: any) {
-      setOtpMsg(e?.response?.data?.message || "Failed to send OTP.");
-    } finally {
-      setSendingOtp(false);
-    }
-  }
+   try {
+     setSendingOtp(true);
+     setOtp("");
+     setOtpVerified(false);
+
+     await api.post("/api/otp/request", {
+       phone: msisdn,
+       type: "REGISTRATION",
+     });
+
+     setOtpSent(true);
+     setOtpCooldown(30);
+     setOtpMsg("OTP sent via SMS. Enter it below.");
+     return true; // ✅ OTP sent
+   } catch (e: any) {
+       const msg =
+         e?.response?.data?.message ||
+         "Failed to send OTP.";
+
+       setOtpSent(false);
+       setOtpMsg(msg);   // still useful for dialog / resend
+       setErrS1(msg);    // ✅ THIS is what the user will see
+       return false;
+   } finally {
+     setSendingOtp(false);
+   }
+ }
+
 
   async function doRegistration() {
     setSavingS1(true);
     setAuthToken(null);
     try {
-      const username = (s1.email && s1.email.trim()) || s1.phone.trim();
+const username = `${s1.areaCode}${s1.phone}`.replace(/\s+/g, "");
       const body: RegisterRequest = {
         username,
-        email: s1.email ?? "",
+email: s1.email?.trim() || null,
         password: s1.password,
         areaCode: s1.areaCode,
         phone: s1.phone,
@@ -495,11 +513,14 @@ const RegisterWizard: React.FC = () => {
       setErrS1("Enter a valid mobile number (area code + phone).");
       return;
     }
-    if (!otpSent) {
-      await sendOtp();
-      setOtpOpen(true);
-      return;
-    }
+   if (!otpSent) {
+     const ok = await sendOtp();
+     if (ok) {
+       setOtpOpen(true);   // ✅ only open when OTP sent
+     }
+     return;
+   }
+
     if (!otp) {
       setOtpMsg("Enter the OTP you received.");
       setOtpOpen(true);
@@ -598,23 +619,33 @@ const RegisterWizard: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}><TextField label="Name" fullWidth value={s1.name} onChange={(e)=>setS1({...s1, name: e.target.value})} /></Grid>
             <Grid item xs={12} md={6}><TextField label="Surname" fullWidth value={s1.surname} onChange={(e)=>setS1({...s1, surname: e.target.value})} /></Grid>
-            <Grid item xs={12}><TextField label="Email (optional)" fullWidth value={s1.email} onChange={(e)=>setS1({...s1, email: e.target.value})} /></Grid>
+<Grid item xs={12}>
+<TextField
+  label="Email (optional)"
+  type="email"
+  fullWidth
+  value={s1.email}
+  onChange={(e)=>setS1({...s1, email: e.target.value})}
+/>
+</Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Password"
-                fullWidth
-                type={showPw ? "text" : "password"}
-                value={s1.password}
-                onChange={(e)=>setS1({...s1, password: e.target.value})}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={()=>setShowPw(p=>!p)}>{showPw ? <VisibilityOff/> : <Visibility/>}</IconButton>
-                    </InputAdornment>
-                  )
-                }}
-                helperText={s1.password ? `Strength: ${pwHelper}` : "Use 8+ characters with a mix of letters, numbers & symbols."}
-              />
+             <TextField
+               label="Password"
+               fullWidth
+               type={showPw ? "text" : "password"}
+               value={s1.password}
+               onChange={(e)=>setS1({...s1, password: e.target.value})}
+               InputProps={{
+                 endAdornment: (
+                   <InputAdornment position="end">
+                     <IconButton onClick={()=>setShowPw(p=>!p)}>
+                       {showPw ? <VisibilityOff/> : <Visibility/>}
+                     </IconButton>
+                   </InputAdornment>
+                 )
+               }}
+               helperText={s1.password ? " " : "Enter a password and confirm it below."}
+             />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField

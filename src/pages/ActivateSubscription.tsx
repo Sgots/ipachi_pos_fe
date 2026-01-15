@@ -15,6 +15,8 @@ const errorText = (e: unknown, fallback: string) => {
   if (e instanceof Error) return e.message || fallback;
   return fallback;
 };
+  // NEW
+
 const errorStatus = (e: unknown): number | undefined => (isAxiosError(e) ? e.response?.status : undefined);
 const errorData = (e: unknown): any => (isAxiosError(e) ? e.response?.data : undefined);
 const formatCode = (value: string): string => {
@@ -38,18 +40,55 @@ const ActivateSubscription: React.FC = () => {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
+  // NEW
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+
+  // NEW: state for trial detection
+  const [checkingPlan, setCheckingPlan] = useState(false);
+  const [trialExpired, setTrialExpired] = useState(false);
+  const [planCheckError, setPlanCheckError] = useState<string | null>(null);
 
   const businessId = Number(localStorage.getItem("x.business.id") || 0);
   const userId = Number(localStorage.getItem("x.user.id") || 0);
+useEffect(() => {
+  const reason = new URLSearchParams(loc.search).get("reason");
 
-  useEffect(() => {
-    const reason = new URLSearchParams(loc.search).get("reason");
-    if (reason === "gate" || reason === "no-plan") {
-      setMsg({ type: "info", text: "You need an active subscription or free trial to continue." });
-    } else if (reason === "no-business") {
-      setMsg({ type: "info", text: "We couldn’t resolve your business. Activate with a code or start a trial." });
+  if (reason === "gate" || reason === "no-plan") {
+    setMsg({ type: "info", text: "You need an active subscription or free trial to continue." });
+  } else if (reason === "no-business") {
+    setMsg({ type: "info", text: "We couldn’t resolve your business. Activate with a code or start a trial." });
+  } else if (reason === "trial-expired") {
+    // Immediately mark trialExpired so button disables even before plan fetch
+    setTrialExpired(true);
+    setMsg({ type: "info", text: "Your free trial has expired and cannot be restarted. Activate a subscription code or contact support." });
+
+    // If we have a businessId, try fetching effective-plan to show the exact expiry timestamp
+    // (non-blocking; failure doesn't re-enable the button)
+    if (businessId && businessId > 0) {
+      (async () => {
+        setCheckingPlan(true);
+        setPlanCheckError(null);
+        try {
+          const plan = await getEffectivePlan(String(businessId));
+          if (plan?.trialEndsAt) {
+            setTrialEndsAt(plan.trialEndsAt);
+          } else if (plan?.trialEndsAt === null && plan?.trialEndsAt === undefined) {
+            // some backends may use validUntil / valid_until / validUntil for expired trial
+            const alt = plan?.validUntil ?? plan?.valid_until ?? plan?.expiresAt ?? plan?.expires_at;
+            if (alt) setTrialEndsAt(alt);
+          }
+        } catch (e: unknown) {
+          setPlanCheckError(errorText(e, "Could not fetch plan"));
+        } finally {
+          setCheckingPlan(false);
+        }
+      })();
     }
-  }, [loc.search]);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [loc.search, businessId]);
+
+
 
   const parseRoles = (me: any): string[] => {
     if (Array.isArray(me?.roles)) return me.roles.map(String);
@@ -76,6 +115,61 @@ const ActivateSubscription: React.FC = () => {
       throw e;
     }
   };
+
+  // NEW: helper to decide if trial is expired
+  const isPlanTrialExpired = (plan: any): boolean => {
+    if (!plan) return false;
+    // tolerate different shapes: trialStatus, trial, expiresAt, trialExpiresAt, source etc.
+    const s = (plan?.trialStatus ?? plan?.status ?? "").toString().toUpperCase();
+    if (s === "EXPIRED") return true;
+
+    // sometimes backend exposes a trialExpiresAt or expiresAt field
+    const expires = plan?.trialExpiresAt ?? plan?.trialExpireAt ?? plan?.expiresAt ?? plan?.expires_at;
+    if (expires) {
+      try {
+        const then = new Date(expires);
+        if (!isNaN(then.getTime())) {
+          return then.getTime() <= Date.now();
+        }
+      } catch {}
+    }
+
+    // fallback: some backends may set source to TRIAL_EXPIRED or similar
+    const src = String(plan?.source ?? "").toUpperCase();
+    if (src.includes("EXPIRED") && src.includes("TRIAL")) return true;
+
+    return false;
+  };
+
+  // NEW: fetch plan on mount and set trialExpired flag
+  useEffect(() => {
+    let mounted = true;
+    if (!businessId || businessId <= 0) return;
+
+    (async () => {
+      setCheckingPlan(true);
+      setPlanCheckError(null);
+      try {
+        const plan = await getEffectivePlan(String(businessId));
+        if (!mounted) return;
+        const expired = isPlanTrialExpired(plan);
+        setTrialExpired(expired);
+      } catch (e: unknown) {
+        console.warn("Failed to check effective plan:", errorText(e, "Unknown"));
+        if (!mounted) return;
+        setPlanCheckError(errorText(e, "Could not determine plan status"));
+        // keep trialExpired false by default on error (safer to allow trial unless explicitly expired)
+      } finally {
+        if (!mounted) return;
+        setCheckingPlan(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId]);
 
   const waitForPlan = async (bid: string, timeoutMs = 10000, intervalMs = 800) => {
     const start = Date.now();
@@ -194,22 +288,50 @@ const ActivateSubscription: React.FC = () => {
     }
   };
 
-  const startTrial = async () => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await api.post("/api/subscriptions/trial/start", {
-        businessId,
-        activatedByUserId: userId,
+// 1) Replace your startTrial function with this
+const startTrial = async () => {
+  // client-side guard: do not call API if trial already expired
+  if (trialExpired) {
+    setMsg({
+      type: "info",
+      text: trialEndsAt
+        ? `Your free trial ended on ${new Date(trialEndsAt).toLocaleString()}. It cannot be restarted. Activate a subscription code or contact support.`
+        : "Your free trial has expired and cannot be restarted. Activate a subscription code or contact support.",
+    });
+    return;
+  }
+
+  // Also prevent starting while we are still checking plan
+  if (checkingPlan) {
+    setMsg({ type: "info", text: "Checking plan status — please wait a moment." });
+    return;
+  }
+
+  setBusy(true);
+  setMsg(null);
+  try {
+    await api.post("/api/subscriptions/trial/start", {
+      businessId,
+      activatedByUserId: userId,
+    });
+    setMsg({ type: "success", text: "Free trial started. Finalizing…" });
+    await reloginAndReload();
+  } catch (e: unknown) {
+    // Show friendlier message for 403 (forbidden) which your backend returns when trial cannot be started
+    if (errorStatus(e) === 403) {
+      setMsg({
+        type: "error",
+        text:
+          "Could not start free trial: your account or business is not eligible. If you think this is wrong, contact support.",
       });
-      setMsg({ type: "success", text: "Free trial started. Finalizing…" });
-      await reloginAndReload();
-    } catch (e: unknown) {
+    } else {
       const text = errorText(e, "Could not start trial");
       setMsg({ type: "error", text });
-      setBusy(false);
     }
-  };
+    setBusy(false);
+  }
+};
+
 
   return (
     <Box className="flex items-center justify-center" sx={{ minHeight: "60vh" }}>
@@ -224,6 +346,20 @@ const ActivateSubscription: React.FC = () => {
         {msg && (
           <Alert severity={msg.type} sx={{ mb: 2 }}>
             {msg.text}
+          </Alert>
+        )}
+
+        {/* If plan check failed show a subtle warning so user understands why trial may still be available */}
+        {planCheckError && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Could not determine current trial status: {planCheckError}
+          </Alert>
+        )}
+
+        {/* If trial is known expired, show info */}
+        {trialExpired && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Your free trial has expired and cannot be restarted. Activate a subscription code or contact support.
           </Alert>
         )}
 
@@ -257,15 +393,20 @@ const ActivateSubscription: React.FC = () => {
           — or —
         </Typography>
 
-        <Button
-          variant="outlined"
-          fullWidth
-          onClick={startTrial}
-          disabled={busy}
-          startIcon={busy ? <CircularProgress size={20} /> : null}
-        >
-          {busy ? "Starting Trial..." : "Start 7-Day Free Trial (Platinum)"}
-        </Button>
+       <Button
+         variant="outlined"
+         fullWidth
+         onClick={startTrial}
+         disabled={Boolean(busy) || Boolean(trialExpired) || Boolean(checkingPlan)}
+         aria-disabled={Boolean(busy) || Boolean(trialExpired) || Boolean(checkingPlan)}
+         startIcon={busy ? <CircularProgress size={20} /> : null}
+         sx={{
+           pointerEvents: (busy || trialExpired || checkingPlan) ? "none" : undefined,
+         }}
+       >
+         {busy ? "Starting Trial..." : "Start 7-Day Free Trial (Platinum)"}
+       </Button>
+
       </Paper>
     </Box>
   );

@@ -9,6 +9,8 @@ export function usePlanAccess() {
     const [loading, setLoading] = useState(true);
     const [source, setSource] = useState<PlanSource>(null);
 
+    const isSuperAdmin = localStorage.getItem("x.super.admin") === "true";
+
     useEffect(() => {
         let cancelled = false;
 
@@ -16,38 +18,43 @@ export function usePlanAccess() {
             businessId,
             permsHydrated,
             username: currentUser?.username,
+            isSuperAdmin,
         });
 
         if (!permsHydrated) {
-            console.log("usePlanAccess: permsHydrated is false, waiting...");
             setLoading(true);
-            return () => {
-                cancelled = true;
-            };
+            return () => { cancelled = true; };
         }
 
         const run = async () => {
             setLoading(true);
             try {
+                // Super admin bypass: always active, no business needed
+                if (isSuperAdmin) {
+                    console.log("usePlanAccess: Super admin detected → forcing active plan");
+                    if (!cancelled) {
+                        setSource("SUBSCRIPTION"); // or "SUPER_ADMIN" if you want to distinguish
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                // Normal flow
                 if (!businessId) {
                     console.log("usePlanAccess: No businessId, setting source to NONE");
-                    setSource("NONE");
+                    if (!cancelled) setSource("NONE");
                 } else {
                     console.log("usePlanAccess: Fetching plan for businessId =", businessId);
                     const { data } = await api.get(`/api/subscriptions/business/${businessId}/effective-plan`);
                     console.log("usePlanAccess: API response =", data);
                     if (!cancelled) {
                         const newSource = data?.source ?? "NONE";
-                        console.log("usePlanAccess: Setting source =", newSource);
                         setSource(newSource);
                     }
                 }
             } catch (error) {
                 console.error("usePlanAccess: API error =", error);
-                if (!cancelled) {
-                    console.log("usePlanAccess: Setting source to NONE due to error");
-                    setSource("NONE");
-                }
+                if (!cancelled) setSource("NONE");
             } finally {
                 if (!cancelled) {
                     console.log("usePlanAccess: Setting loading = false");
@@ -55,19 +62,21 @@ export function usePlanAccess() {
                 }
             }
         };
+
         run();
+
         return () => {
             console.log("usePlanAccess: Effect cleanup");
             cancelled = true;
         };
-    }, [businessId, permsHydrated]);
+    }, [businessId, permsHydrated, isSuperAdmin]); // ← add isSuperAdmin to deps
 
-    // Check if the user is admin based on username
-    const isAdmin = permsHydrated && currentUser?.username === "admin";
+    // Super admin is always considered admin-like and has active plan
+    const isAdmin = isSuperAdmin || (permsHydrated && currentUser?.username === "admin");
 
-    const hasActive = isAdmin || source === "TRIAL" || source === "SUBSCRIPTION";
+    const hasActive = isSuperAdmin || isAdmin || source === "TRIAL" || source === "SUBSCRIPTION";
 
-    console.log("usePlanAccess: Final state", { loading, source, hasActive, isAdmin });
+    console.log("usePlanAccess: Final state", { loading, source, hasActive, isAdmin, isSuperAdmin });
 
     return { loading, source, hasActive };
 }

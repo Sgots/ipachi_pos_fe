@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Configuration variables
-PROJECT_DIR="/home/nonofo/PhpstormProjects/ipachi_pos_fe2" # Replace with your local project path on Windows (e.g., /c/Users/YourName/your-app)
+PROJECT_DIR="C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal" # Replace with your local project path on Windows (e.g., /c/Users/YourName/your-app)
 SERVER_USER="root"                    # Replace with your Linux server username
-SERVER_HOST="159.223.202.97"                  # Replace with your Linux server IP or hostname
+SERVER_HOST="159.198.68.190"                  # Replace with your Linux server IP or hostname
 SERVER_PATH="/var/www/ipachi-pos"               # Replace with your server's deployment directory
 NGINX_SERVICE="nginx"                         # Web server service name (nginx)
 
