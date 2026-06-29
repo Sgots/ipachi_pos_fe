@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#Jy9qTd4TN6gJZm7k32
 # Configuration variables
 PROJECT_DIR="C:\Users\nonofoS\IdeaProjects\ipachi-pos-portal\ipachi-pos-portal" # Replace with your local project path on Windows (e.g., /c/Users/YourName/your-app)
 SERVER_USER="root"                    # Replace with your Linux server username

@@ -228,33 +228,39 @@ const ALLOW_SELF_REGISTER = true;
       const { data: plan } = await api.get(`/api/subscriptions/business/${bid}/effective-plan`);
       console.log("[LOGIN] Plan data:", plan);
 
-      if (!plan || plan.source === "NONE") {
-        nav("/activate-subscription?reason=no-plan", { replace: true });
-        return;
-      }
-    } catch (planErr) {
-      console.warn("[LOGIN] Plan check failed:", planErr);
-      nav("/activate-subscription?reason=no-plan", { replace: true });
-      return;
-    }
+     if (!plan || plan.source === "NONE") {
+               nav("/activate-subscription?reason=no-plan", { replace: true });
+               return;
+             }
 
-    console.log("[LOGIN] All checks passed → cash-till");
-    nav("/cash-till", { replace: true });
-  } catch (err: any) {
-    console.error("[LOGIN] Error during login flow:", err);
-    const msg = err?.response?.data?.message?.toLowerCase() || "";
+             const tier = String(plan.tier || "").toUpperCase().trim();
 
-    if (msg.includes("staff")) {
-      setError("Invalid staff number or password");
-    } else if (msg.includes("mobile") || msg.includes("phone")) {
-      setError("Invalid mobile number or password");
-    } else {
-      setError("Login failed: " + (err.message || "Unknown error"));
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+             // NEW DASHBOARD PLANS → Business List Dashboard
+             if (["DISCOVER", "MONITOR", "INTELLIGENCE"].includes(tier)) {
+               console.log(`[LOGIN] ${tier} plan detected → redirecting to /dashboard`);
+               nav("/dashboard", { replace: true });
+               return;
+             }
+
+             // Legacy plans → Cash Till
+             console.log("[LOGIN] Legacy plan detected → going to cash-till");
+             nav("/cash-till", { replace: true });
+
+           } catch (planErr) {
+             console.warn("[LOGIN] Plan check failed:", planErr);
+             nav("/activate-subscription?reason=no-plan", { replace: true });
+           }
+         } catch (err: any) {
+           console.error("[LOGIN] Error during login flow:", err);
+           const msg = err?.response?.data?.message?.toLowerCase() || "";
+
+           if (msg.includes("staff")) setError("Invalid staff number or password");
+           else if (msg.includes("mobile") || msg.includes("phone")) setError("Invalid mobile number or password");
+           else setError("Login failed: " + (err.message || "Unknown error"));
+         } finally {
+           setLoading(false);
+         }
+       };
   return (
     <Box
       sx={{

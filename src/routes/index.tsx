@@ -23,6 +23,8 @@ import SubscriptionCodes from "../pages/SubscriptionCodes";
 import ActivateSubscription from "../pages/ActivateSubscription";
 import { SubscriptionGuard } from "../components/SubscriptionGuard";
 import  ForgotPassword  from "../pages/ForgotPassword";
+import BusinessListDashboard from "../pages/Dashboard";
+import EntityReport from "../pages/EntityReports";
 
 import { AdminOnlyGuard } from "../components/AdminOnlyGuard";
 
@@ -61,6 +63,27 @@ export const AppRoutes: React.FC = () => {
                         </GuardedShell>
                     </ProtectedRoute>
                 }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <GuardedShell>
+                    <BusinessListDashboard />
+                  </GuardedShell>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/business/:businessId/dashboard"
+              element={
+                <ProtectedRoute>
+                  <GuardedShell>
+                    <Reports />   {/* or a dedicated business dashboard */}
+                  </GuardedShell>
+                </ProtectedRoute>
+              }
             />
             <Route
                 path="/activate-subscription"
@@ -155,6 +178,16 @@ export const AppRoutes: React.FC = () => {
                     </ProtectedRoute>
                 }
             />
+             <Route
+                            path="/reporting"
+                            element={
+                                <ProtectedRoute>
+                                    <GuardedShell>
+                                        <EntityReport />
+                                    </GuardedShell>
+                                </ProtectedRoute>
+                            }
+                        />
             <Route
                 path="/inventory/stock"
                 element={

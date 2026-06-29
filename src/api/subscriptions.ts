@@ -3,11 +3,14 @@ import client from "./client";
 export type EffectivePlan = {
     businessId: number;
     source: "TRIAL" | "SUBSCRIPTION" | "NONE";
-    tier: "BRONZE"|"SILVER"|"GOLD"|"PLATINUM";
+tier: "BRONZE"|"SILVER"|"GOLD"|"PLATINUM" | "DISCOVER"|"MONITOR"|"INTELLIGENCE";
     usersAllowed: number;
     qrCodeLimit?: number | null;
     trialEndsAt?: string | null;
     subscriptionExpiresAt?: string | null;
+    displayName?: string;
+        dashboardViewsLimit?: number | null;
+        reportDownloadsLimit?: number | null;
 };
 
 export const getEffectivePlan = (businessId: number|string) =>

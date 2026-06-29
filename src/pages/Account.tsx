@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
+  Tooltip,
+  IconButton,
   Paper,
   Typography,
   Button,
@@ -23,7 +25,7 @@ import {
 import { AxiosProgressEvent } from "axios";
 import client from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 type UserProfileDTO = {
   id?: number;
   title?: string;
@@ -69,6 +71,7 @@ type SettingsDTO = {
   enableVat: boolean;
   pricesIncludeVat: boolean;
   vatRate: number;
+  dataSharingEnabled: boolean;
 };
 // ✅ Paste this near the top of your file (or in utils/currency.ts)
 
@@ -146,15 +149,20 @@ export function useCurrencies(locale: string = "en"): CurrencyOption[] {
 // ---- Effective plan view (matches backend)
 type EffectivePlanView = {
   source?: "TRIAL" | "SUBSCRIPTION" | "NONE" | string;
-  tier?: "BRONZE" | "SILVER" | "GOLD" | "PLATINUM" | string | null;
+  tier?: string | null;
+  planTier?: string | null;
+  subscriptionTier?: string | null;
   usersAllowed?: number | null;
   qrCodeLimit?: number | null;
   validFrom?: string | null;
-  validUntil?: string | null;     // <- use this as primary expiry
+  validUntil?: string | null;
   trialActive?: boolean;
-  trialEndsAt?: string | null;    // still supported by backend, fallback only
+  trialEndsAt?: string | null;
+  plan?: {
+    tier?: string | null;
+    name?: string | null;
+  } | null;
 };
-
 /** Local pill tabs */
 const PillTabs: React.FC<{
   value: number;
@@ -208,39 +216,28 @@ const currencies = useCurrencies("en");
     roleStr === "ADMIN" ||
     roleStr === "ROLE_ADMIN";
 
-  const bootHeaders = useCallback(async () => {
-    if (!isAdmin) return;
-    const uid = currentUser?.id;
-    const tid = terminalId;
-    if (uid != null) client.defaults.headers.common["X-User-Id"] = String(uid);
-    else delete client.defaults.headers.common["X-User-Id"];
+ const bootHeaders = useCallback(() => {
+   if (!isAdmin) return;
 
-    if (tid != null && String(tid).trim() !== "") {
-      client.defaults.headers.common["X-Terminal-Id"] = String(tid);
-    } else {
-      delete client.defaults.headers.common["X-Terminal-Id"];
-    }
+   const uid = currentUser?.id;
+   const tid = terminalId;
 
-    let bid = (typeof window !== "undefined" && window.localStorage.getItem("x.business.id")) || "";
-    if (!bid || bid === "null" || bid === "undefined") {
-      try {
-        const { data } = await client.get("/api/business-profile");
-        const d = data?.data ?? data;
-        const id = d?.id ?? d?.businessId ?? d?.business?.id ?? null;
-        if (id != null) {
-          bid = String(id);
-          window.localStorage.setItem("x.business.id", bid);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    if (bid && bid !== "null" && bid !== "undefined") {
-      client.defaults.headers.common["X-Business-Id"] = bid;
-    } else {
-      delete client.defaults.headers.common["X-Business-Id"];
-    }
-  }, [currentUser?.id, terminalId, isAdmin]);
+   if (uid != null) {
+     client.defaults.headers.common["X-User-Id"] = String(uid);
+   } else {
+     delete client.defaults.headers.common["X-User-Id"];
+   }
+
+   if (tid != null && String(tid).trim() !== "") {
+     client.defaults.headers.common["X-Terminal-Id"] = String(tid);
+   } else {
+     delete client.defaults.headers.common["X-Terminal-Id"];
+   }
+
+   // Important:
+   // Account must not inherit the SME report context.
+   delete client.defaults.headers.common["X-Business-Id"];
+ }, [currentUser?.id, terminalId, isAdmin]);
 
   useEffect(() => {
     void bootHeaders();
@@ -262,20 +259,21 @@ const currencies = useCurrencies("en");
     hasIdDoc: true,
   });
 
-  const [business, setBusiness] = useState<BusinessProfileDTO>({
-    id: 1,
-    name: "",
-    location: "",
-    hasLogo: true,
-  });
+const [business, setBusiness] = useState<BusinessProfileDTO>({
+  name: "",
+  location: "",
+  hasLogo: true,
+});
 
-  const [settings, setSettings] = useState<SettingsDTO>({
-    currency: "PHP",
-    abbreviation: "P",
-    enableVat: false,
-    pricesIncludeVat: false,
-    vatRate: 0,
-  });
+const [ownBusinessId, setOwnBusinessId] = useState<string>("");
+const [settings, setSettings] = useState<SettingsDTO>({
+  currency: "BWP",
+  abbreviation: "P",
+  enableVat: false,
+  pricesIncludeVat: false,
+  vatRate: 0,
+  dataSharingEnabled: true,
+});
 
   // ---- NEW: effective plan
   const [effectivePlan, setEffectivePlan] = useState<EffectivePlanView | null>(null);
@@ -344,88 +342,131 @@ const resolveAssetUrl = (path?: string | null) => {
   };
 
   // Load profile, business, settings
-  useEffect(() => {
-    if (!isAdmin) return;
-    client
-      .get("/api/user-profile")
-      .then((res) => {
-        const data = res.data?.data ?? res.data;
-        if (data) {
-          setAboutMe((prev) => ({
-            ...prev,
-            ...data,
-            hasPicture: data.hasPicture ?? prev.hasPicture,
-            hasIdDoc: data.hasIdDoc ?? prev.hasIdDoc,
-            pictureUrl: data.pictureUrl ?? prev.pictureUrl ?? null,
-            idDocUrl: data.idDocUrl ?? prev.idDocUrl ?? null,
-            createdAt: data.createdAt ?? prev.createdAt,
-            updatedAt: data.updatedAt ?? prev.updatedAt,
-          }));
-        }
-      })
-      .catch(() => {});
+   // Load profile, business, settings
+   useEffect(() => {
+     if (!isAdmin) return;
 
-    client
-      .get("/api/business-profile")
-      .then((res) => {
-        const data = res.data?.data ?? res.data;
-        if (data) {
-          setBusiness((prev) => ({
-            ...prev,
-            ...data,
-            logoUrl: data.logoUrl ?? prev.logoUrl ?? null,
-            createdAt: data.createdAt ?? prev.createdAt,
-            updatedAt: data.updatedAt ?? prev.updatedAt,
-          }));
-          const bid = data?.id ?? data?.businessId ?? data?.business?.id;
-          if (bid != null) {
-            client.defaults.headers.common["X-Business-Id"] = String(bid);
-            window.localStorage.setItem("x.business.id", String(bid));
-          }
-        }
-      })
-      .catch(() => {});
+     let cancelled = false;
 
-    client
-      .get("/api/settings")
-      .then((res) => {
-        const data = res.data?.data ?? res.data;
-        if (data) {
-          const enableVat = !!data.enableVat;
+     const loadAccountData = async () => {
+       try {
+         bootHeaders();
+
+         // Account must always start clean, not from selected SME report.
+         delete client.defaults.headers.common["X-Business-Id"];
+
+         const userProfileRes = await client.get("/api/user-profile");
+         const userProfileData = userProfileRes.data?.data ?? userProfileRes.data;
+
+         if (!cancelled && userProfileData) {
+           setAboutMe((prev) => ({
+             ...prev,
+             ...userProfileData,
+             hasPicture: userProfileData.hasPicture ?? prev.hasPicture,
+             hasIdDoc: userProfileData.hasIdDoc ?? prev.hasIdDoc,
+             pictureUrl: userProfileData.pictureUrl ?? prev.pictureUrl ?? null,
+             idDocUrl: userProfileData.idDocUrl ?? prev.idDocUrl ?? null,
+             createdAt: userProfileData.createdAt ?? prev.createdAt,
+             updatedAt: userProfileData.updatedAt ?? prev.updatedAt,
+           }));
+         }
+
+         const businessRes = await client.get("/api/business-profile");
+         const businessData = businessRes.data?.data ?? businessRes.data;
+
+         if (!cancelled && businessData) {
+           setBusiness((prev) => ({
+             ...prev,
+             ...businessData,
+             logoUrl: businessData.logoUrl ?? prev.logoUrl ?? null,
+             createdAt: businessData.createdAt ?? prev.createdAt,
+             updatedAt: businessData.updatedAt ?? prev.updatedAt,
+           }));
+
+           const bid =
+             businessData?.id ??
+             businessData?.businessId ??
+             businessData?.business?.id ??
+             null;
+
+           if (bid != null) {
+             const ownId = String(bid);
+
+             setOwnBusinessId(ownId);
+
+             // Store logged-in user's own business separately.
+             window.localStorage.setItem("x.own.business.id", ownId);
+
+             // Account now uses the logged-in user's business context.
+             client.defaults.headers.common["X-Business-Id"] = ownId;
+           }
+         }
+
+         const settingsRes = await client.get("/api/settings");
+         const settingsData = settingsRes.data?.data ?? settingsRes.data;
+
+         if (!cancelled && settingsData) {
+           const enableVat = !!settingsData.enableVat;
+
           setSettings((prev) => ({
-            currency: data.currency ?? prev.currency,
-            abbreviation: data.abbreviation ?? prev.abbreviation,
+            currency: settingsData.currency ?? prev.currency,
+            abbreviation: settingsData.abbreviation ?? prev.abbreviation,
             enableVat,
             pricesIncludeVat: enableVat,
-            vatRate: Number(data.vatRate ?? prev.vatRate) || 0,
+            vatRate: Number(settingsData.vatRate ?? prev.vatRate) || 0,
+
+            // Default ON if backend has not returned the field yet.
+            dataSharingEnabled:
+              settingsData.dataSharingEnabled === undefined ||
+              settingsData.dataSharingEnabled === null
+                ? true
+                : Boolean(settingsData.dataSharingEnabled),
           }));
-        }
-      })
-      .catch(() => {});
-  }, [isAdmin]);
+         }
+       } catch (error) {
+         console.error("Failed to load account data:", error);
+       }
+     };
 
-  // ---- Load effective plan using /api/subscriptions/business/{businessId}/effective-plan
-  const loadEffectivePlan = useCallback(async () => {
-    if (!isAdmin) return;
-    const resolveBusinessId = (): string | null => {
-      const fromLs = (typeof window !== "undefined" && window.localStorage.getItem("x.business.id")) || "";
-      if (fromLs && fromLs !== "null" && fromLs !== "undefined") return fromLs;
-      if (business?.id != null) return String(business.id);
-      return null;
-    };
-    const bid = resolveBusinessId();
-    if (!bid) return;
-    try {
-      const res = await client.get(`/api/subscriptions/business/${bid}/effective-plan`);
-      setEffectivePlan(res.data?.data ?? res.data ?? null);
-    } catch {
-      setEffectivePlan(null);
-    }
-  }, [isAdmin, business?.id]);
+     void loadAccountData();
 
-  useEffect(() => {
-    void loadEffectivePlan();
-  }, [loadEffectivePlan]);
+     return () => {
+       cancelled = true;
+     };
+   }, [isAdmin, bootHeaders]);
+
+   // ---- Load effective plan using /api/subscriptions/business/{businessId}/effective-plan
+   const loadEffectivePlan = useCallback(async () => {
+     if (!isAdmin) return;
+
+     const bid =
+       ownBusinessId ||
+       localStorage.getItem("x.own.business.id") ||
+       (business?.id != null ? String(business.id) : "");
+
+     if (!bid || bid === "null" || bid === "undefined") {
+       setEffectivePlan(null);
+       return;
+     }
+
+     try {
+       client.defaults.headers.common["X-Business-Id"] = bid;
+
+       const res = await client.get(`/api/subscriptions/business/${bid}/effective-plan`);
+       const payload = res.data?.data ?? res.data ?? null;
+
+       console.log("Effective plan loaded for own business:", bid, payload);
+
+       setEffectivePlan(payload);
+     } catch (error) {
+       console.error("Failed to load effective plan:", error);
+       setEffectivePlan(null);
+     }
+   }, [isAdmin, ownBusinessId, business?.id]);
+
+   useEffect(() => {
+     void loadEffectivePlan();
+   }, [loadEffectivePlan]);
 
   // Fetch blobs
   useEffect(() => {
@@ -522,8 +563,11 @@ const resolveAssetUrl = (path?: string | null) => {
         setBusiness((prev) => ({ ...prev, ...data }));
         const bid = data?.id ?? data?.businessId ?? data?.business?.id;
         if (bid != null) {
-          client.defaults.headers.common["X-Business-Id"] = String(bid);
-          window.localStorage.setItem("x.business.id", String(bid));
+         const ownId = String(bid);
+
+         setOwnBusinessId(ownId);
+         client.defaults.headers.common["X-Business-Id"] = ownId;
+         window.localStorage.setItem("x.own.business.id", ownId);
         }
       }
     });
@@ -541,14 +585,14 @@ const resolveAssetUrl = (path?: string | null) => {
 
     const enableVat = !!settings.enableVat;
 
-    const body = {
-      currency: settings.currency,
-      abbreviation: settings.abbreviation,
-      enableVat,
-      pricesIncludeVat: enableVat,
-      vatRate: normalizedVatRate(Number(settings.vatRate)),
-    };
-
+  const body = {
+    currency: settings.currency,
+    abbreviation: settings.abbreviation,
+    enableVat,
+    pricesIncludeVat: enableVat,
+    vatRate: normalizedVatRate(Number(settings.vatRate)),
+    dataSharingEnabled: Boolean(settings.dataSharingEnabled),
+  };
     await client.put("/api/settings", body);
     alert("Settings saved");
     client.get("/api/settings").then((res) => {
@@ -561,6 +605,10 @@ const resolveAssetUrl = (path?: string | null) => {
           enableVat: enableVatSrv,
           pricesIncludeVat: enableVatSrv,
           vatRate: Number(data.vatRate ?? body.vatRate) || 0,
+          dataSharingEnabled:
+            data.dataSharingEnabled === undefined || data.dataSharingEnabled === null
+              ? body.dataSharingEnabled
+              : Boolean(data.dataSharingEnabled),
         });
       }
     });
@@ -612,8 +660,11 @@ const resolveAssetUrl = (path?: string | null) => {
             setBusiness((p) => ({ ...p, ...data }));
             const bid = data?.id ?? data?.businessId ?? data?.business?.id;
             if (bid != null) {
-              client.defaults.headers.common["X-Business-Id"] = String(bid);
-              window.localStorage.setItem("x.business.id", String(bid));
+             const ownId = String(bid);
+
+             setOwnBusinessId(ownId);
+             client.defaults.headers.common["X-Business-Id"] = ownId;
+             window.localStorage.setItem("x.own.business.id", ownId);
             }
           })
           .catch(() => {}),
@@ -673,14 +724,131 @@ const resolveAssetUrl = (path?: string | null) => {
         Math.ceil((new Date(activeExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       )
     : null;
+type SubscriptionPlanCard = {
+  name: string;
+  displayName?: string;
+  price: string;
+  annualPrice?: string;
+  features: string[];
+  iconColor: string;
+};
 
+const REPORTING_PLAN_TIERS = ["INTELLIGENCE", "DISCOVER", "MONITOR"];
+
+const showReportingPlansOnly = REPORTING_PLAN_TIERS.includes(tier);
+const isSmePlan = !REPORTING_PLAN_TIERS.includes(tier);
+const reportingPlans: SubscriptionPlanCard[] = [
+  {
+    name: "DISCOVER",
+    displayName: "Ipachi Discover Plan",
+    price: "P5,000/month",
+    features: [
+      "SME Directory",
+      "Search & Filters",
+      "100 Dashboard Views",
+      "100 Report Downloads (Chart Analytics)",
+      "Standard Support",
+    ],
+    iconColor: "#2f7ae5",
+  },
+  {
+    name: "MONITOR",
+    displayName: "Ipachi Monitor Plan",
+    price: "P15,000/month",
+    features: [
+      "Everything in Discover plus:",
+      "Live SME Monitoring",
+      "Business Performance Trends",
+      "500 Dashboard Views",
+      "500 Report Downloads (Comprehensive Reports)",
+      "Alerts & Notifications",
+      "Priority Support",
+    ],
+    iconColor: "#10b981",
+  },
+  {
+    name: "INTELLIGENCE",
+    displayName: "Ipachi Intelligence Plan",
+    price: "P30,000/month",
+    features: [
+      "Everything in Ipachi Monitor plus:",
+      "Unlimited Views",
+      "Unlimited Downloads",
+      "Automated Risk Scoring",
+      "Credit Recommendations",
+      "Portfolio Monitoring",
+      "API Access",
+      "Dedicated Relationship Manager",
+      "Advanced Analytics",
+    ],
+    iconColor: "#6d28d9",
+  },
+];
+const smeSubscriptionPlans: SubscriptionPlanCard[] = [
+  {
+    name: "FREE TRIAL",
+    price: "7 Days Free",
+    features: ["Platinum features access"],
+    iconColor: "#4caf50",
+  },
+  {
+    name: "BRONZE",
+    price: "P50/month",
+    features: ["1 user", "Loan up to P1,000", "Inventory, sales & reports"],
+    iconColor: "#cd7f32",
+  },
+  {
+    name: "SILVER",
+    price: "P100/month",
+    features: ["2 users", "Loan up to P2,500", "Inventory, sales & reports"],
+    iconColor: "#c0c0c0",
+  },
+  {
+    name: "GOLD",
+    price: "P150/month",
+    features: [
+      "5 users",
+      "Loan up to P5,000",
+      "Funeral cover P10,000",
+      "Inventory, sales & reports",
+    ],
+    iconColor: "#ffd700",
+  },
+  {
+    name: "PLATINUM",
+    price: "P250/month",
+    features: [
+      "10 users",
+      "Loan up to P10,000",
+      "Funeral cover P25,000",
+      "Comprehensive reports",
+      "Priority support",
+      "Free staff training",
+    ],
+    iconColor: "#e5e4e2",
+  },
+];
+
+const visibleSubscriptionPlans = showReportingPlansOnly
+  ? reportingPlans
+  : smeSubscriptionPlans;
   // ---- Code formatting & redemption
-  const getBusinessId = (): number | null => {
-    const fromLs = (typeof window !== "undefined" && window.localStorage.getItem("x.business.id")) || "";
-    if (fromLs && fromLs !== "null" && fromLs !== "undefined") return Number(fromLs);
-    if (business?.id != null) return Number(business.id);
-    return null;
-  };
+const getBusinessId = (): number | null => {
+  const ownId =
+    ownBusinessId ||
+    localStorage.getItem("x.own.business.id") ||
+    "";
+
+  if (ownId && ownId !== "null" && ownId !== "undefined") {
+    return Number(ownId);
+  }
+
+  if (business?.id != null) {
+    return Number(business.id);
+  }
+
+  return null;
+};
 
 const normalizeCode = (raw: string) => {
   // Remove all non-alphanumeric characters and uppercase
@@ -1248,117 +1416,88 @@ const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             Save 30% by subscribing annually.
           </Typography>
 
-          <Grid container spacing={3} justifyContent="center">
-            {[
-              {
-                name: "FREE TRIAL",
-                price: "7 Days Free",
-                features: ["Platinum features access"],
-                iconColor: "#4caf50",
-              },
-              {
-                name: "BRONZE",
-                price: "P50/month",
-                features: ["1 user", "Loan up to P1,000", "Inventory, sales & reports"],
-                iconColor: "#cd7f32",
-              },
-              {
-                name: "SILVER",
-                price: "P100/month",
-                features: ["2 users", "Loan up to P2,500", "Inventory, sales & reports"],
-                iconColor: "#c0c0c0",
-              },
-              {
-                name: "GOLD",
-                price: "P150/month",
-                features: [
-                  "5 users",
-                  "Loan up to P5,000",
-                  "Funeral cover P10,000",
-                  "Inventory, sales & reports",
-                ],
-                iconColor: "#ffd700",
-              },
-              {
-                name: "PLATINUM",
-                price: "P250/month",
-                features: [
-                  "10 users",
-                  "Loan up to P10,000",
-                  "Funeral cover P25,000",
-                  "Comprehensive reports",
-                  "Priority support",
-                  "Free staff training",
-                ],
-                iconColor: "#e5e4e2",
-              },
-            ].map((plan) => {
-              const isActiveCard = cardIsActive(plan.name);
+        <Grid container spacing={3} justifyContent="center">
+          {visibleSubscriptionPlans.map((plan) => {
+            const isActiveCard = cardIsActive(plan.name);
 
-              return (
-                <Grid item xs={12} sm={6} md={2.4} key={plan.name}>
-                  <Card
-                    sx={{
-                      textAlign: "center",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      borderRadius: 2,
-                      position: "relative",
-                      ...(isActiveCard
-                        ? {
-                            border: "2px solid #4caf50",
-                            boxShadow: "0 6px 18px rgba(76,175,80,0.25)",
-                            transform: "scale(1.02)",
-                          }
-                        : {}),
-                    }}
-                  >
-                    {/* Chip shows TRIAL only when FREE TRIAL card is active due to trial */}
-                    {isActiveCard && (
-                      <Chip
-                        label={isTrial ? "TRIAL" : "ACTIVE"}
-                        color="success"
-                        size="small"
-                        sx={{ position: "absolute", top: 10, right: 10, fontWeight: 700 }}
-                      />
+            return (
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={showReportingPlansOnly ? 4 : 2.4}
+                key={plan.displayName ?? plan.name}
+              >
+                <Card
+                  sx={{
+                    textAlign: "center",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    borderRadius: 2,
+                    position: "relative",
+                    ...(isActiveCard
+                      ? {
+                          border: "2px solid #4caf50",
+                          boxShadow: "0 6px 18px rgba(76,175,80,0.25)",
+                          transform: "scale(1.02)",
+                        }
+                      : {}),
+                  }}
+                >
+                  {isActiveCard && (
+                    <Chip
+                      label={isTrial ? "TRIAL" : "ACTIVE"}
+                      color="success"
+                      size="small"
+                      sx={{
+                        position: "absolute",
+                        top: 10,
+                        right: 10,
+                        fontWeight: 700,
+                      }}
+                    />
+                  )}
+
+                  <CardContent>
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        backgroundColor: plan.iconColor,
+                        mx: "auto",
+                        mb: 2,
+                      }}
+                    />
+
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                      {plan.name}
+                    </Typography>
+
+                    <Typography variant="h5" sx={{ mb: 1 }}>
+                      {plan.price}
+                    </Typography>
+
+                    {plan.annualPrice && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        or {plan.annualPrice} (Save 30%)
+                      </Typography>
                     )}
 
-                    <CardContent>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "50%",
-                          backgroundColor: plan.iconColor,
-                          mx: "auto",
-                          mb: 2,
-                        }}
-                      />
-                      <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                        {plan.name}
+                    {plan.features.map((feature) => (
+                      <Typography key={feature} variant="body2" sx={{ mb: 0.5 }}>
+                        {feature}
                       </Typography>
-                      <Typography variant="h5" sx={{ mb: 1 }}>
-                        {plan.price}
-                      </Typography>
-                      {"annualPrice" in plan && (plan as any).annualPrice ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          or {(plan as any).annualPrice} (Save 30%)
-                        </Typography>
-                      ) : null}
-                      {plan.features.map((f) => (
-                        <Typography key={f} variant="body2" sx={{ mb: 0.5 }}>
-                          {f}
-                        </Typography>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
+                    ))}
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
         </Box>
       )}
 
@@ -1444,7 +1583,64 @@ const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               helperText="Example: 14 for 14% (max 99.99)"
               sx={{ mb: 2 }}
             />
+{isSmePlan && (
+  <>
+    <Divider sx={{ my: 2 }} />
 
+    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+      Business Data Sharing
+    </Typography>
+
+    <Box
+      sx={{
+        p: 2,
+        mb: 2,
+        borderRadius: 2,
+        bgcolor: "#f9fafb",
+        border: "1px solid #e5e7eb",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography sx={{ fontWeight: 600 }}>
+            Allow authorized service providers to discover and assess my business
+          </Typography>
+
+          <Tooltip
+            arrow
+            placement="top"
+            title={
+              settings.dataSharingEnabled
+                ? "I agree to securely share my business data with authorized service providers so they can assess my business and offer relevant financial and business services. My data will only be accessed with my consent and in accordance with Ipachi's Privacy Policy."
+                : "Turning off data sharing means banks, lenders, investors, insurers, and other authorized service providers will not be able to discover your business or assess your reports. As a result, you may not receive certain funding opportunities, business services, or personalized offers."
+            }
+          >
+            <IconButton size="small" aria-label="Business data sharing information">
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Switch
+          checked={settings.dataSharingEnabled}
+          onChange={(e) =>
+            setSettings((prev) => ({
+              ...prev,
+              dataSharingEnabled: e.target.checked,
+            }))
+          }
+          color="primary"
+        />
+      </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        {settings.dataSharingEnabled
+          ? "Data sharing is currently ON. Authorized service providers may discover your business and assess your reports with your consent."
+          : "Data sharing is currently OFF. Your business will not be visible for service-provider assessment or offers."}
+      </Typography>
+    </Box>
+  </>
+)}
             <Button type="submit" variant="contained" sx={{ backgroundColor: "#4caf50", mt: 1 }}>
               Update
             </Button>

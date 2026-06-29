@@ -18,7 +18,7 @@ const SlideUpTransition = React.forwardRef(function SlideUpTransition(
     return <Slide ref={ref} direction="up" {...props} />;
 });
 
-type Tier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+type Tier =  "BRONZE"|"SILVER"|"GOLD"|"PLATINUM" | "DISCOVER"|"MONITOR"|"INTELLIGENCE";
 
 type CodeRow = {
     id: number;
@@ -31,8 +31,7 @@ type CodeRow = {
     cancelledAt?: string | null;
     cancelledReason?: string | null;
 };
-
-const tiers: Tier[] = ["BRONZE", "SILVER", "GOLD", "PLATINUM"];
+const tiers: Tier[] = ["BRONZE", "SILVER", "GOLD", "PLATINUM", "DISCOVER", "MONITOR", "INTELLIGENCE"];
 const brand = { dark: "#0c5b4a" };
 
 const SubscriptionCodes: React.FC = () => {

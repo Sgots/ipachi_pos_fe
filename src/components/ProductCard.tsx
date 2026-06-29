@@ -5,6 +5,8 @@ import client from "../api/client";
 import type { AxiosResponse } from "axios";
 
 interface Props {
+businessIdHeader?: string;
+viewOnly?: boolean;
   sku: string;
   name: string;
   price: number;
@@ -26,12 +28,14 @@ const ProductCard: React.FC<Props> = ({
   price,
   stock,
   lowStock = 0,
-    onSpecial = false,
+  onSpecial = false,
   img,
   onAdd,
   userIdHeader,
+  businessIdHeader,
   authToken,
   disabled = false,
+  viewOnly = false,
   animateDelta = 0,
   onQuantityChange,
 }) => {
@@ -49,10 +53,16 @@ const ProductCard: React.FC<Props> = ({
       try {
         const res: AxiosResponse<Blob> = await client.get(img, {
           responseType: "blob",
-          headers: {
-            ...(userIdHeader ? { "X-User-Id": userIdHeader } : {}),
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          },
+      headers: {
+        ...(userIdHeader ? { "X-User-Id": userIdHeader } : {}),
+        ...(businessIdHeader
+          ? {
+              "X-Business-Id": businessIdHeader,
+              "X-Business-ID": businessIdHeader,
+            }
+          : {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
         });
         const blob = res.data;
         objectUrl = URL.createObjectURL(blob);
@@ -180,8 +190,8 @@ const ProductCard: React.FC<Props> = ({
         borderRadius: 2,
         position: "relative",
         height: "100%",
-        opacity: clickable ? 1 : 0.6,
-        pointerEvents: clickable ? "auto" : "none",
+      opacity: viewOnly ? 1 : clickable ? 1 : 0.6,
+      pointerEvents: clickable ? "auto" : "none",
         border: stockState === "none" ? "1px solid rgba(220,0,0,0.12)" : undefined,
       }}
     >

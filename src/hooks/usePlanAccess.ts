@@ -1,82 +1,103 @@
+// src/hooks/usePlanAccess.ts
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 export type PlanSource = "TRIAL" | "SUBSCRIPTION" | "NONE" | null;
 
-export function usePlanAccess() {
-    const { businessId, currentUser, permsHydrated } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [source, setSource] = useState<PlanSource>(null);
+export type EffectivePlanInfo = {
+  source: PlanSource;
+  tier?: string | null;
+  hasActive: boolean;
+  isDashboardOnlyPlan: boolean;
+  shouldHideDashboard: boolean;
+  loading: boolean;
+};
 
-    const isSuperAdmin = localStorage.getItem("x.super.admin") === "true";
+export function usePlanAccess(): EffectivePlanInfo {
+  const { businessId, currentUser, permsHydrated } = useAuth();
 
-    useEffect(() => {
-        let cancelled = false;
+  const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<PlanSource>(null);
+  const [tier, setTier] = useState<string | null>(null);
 
-        console.log("usePlanAccess: Starting effect", {
-            businessId,
-            permsHydrated,
-            username: currentUser?.username,
-            isSuperAdmin,
-        });
+  const isSuperAdmin = localStorage.getItem("x.super.admin") === "true";
 
-        if (!permsHydrated) {
-            setLoading(true);
-            return () => { cancelled = true; };
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!permsHydrated) {
+      setLoading(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const run = async () => {
+      setLoading(true);
+
+      try {
+        if (isSuperAdmin) {
+          if (!cancelled) {
+            setSource("SUBSCRIPTION");
+            setTier("PLATINUM");
+          }
+          return;
         }
 
-        const run = async () => {
-            setLoading(true);
-            try {
-                // Super admin bypass: always active, no business needed
-                if (isSuperAdmin) {
-                    console.log("usePlanAccess: Super admin detected → forcing active plan");
-                    if (!cancelled) {
-                        setSource("SUBSCRIPTION"); // or "SUPER_ADMIN" if you want to distinguish
-                        setLoading(false);
-                    }
-                    return;
-                }
+        if (!businessId) {
+          if (!cancelled) {
+            setSource("NONE");
+            setTier(null);
+          }
+          return;
+        }
 
-                // Normal flow
-                if (!businessId) {
-                    console.log("usePlanAccess: No businessId, setting source to NONE");
-                    if (!cancelled) setSource("NONE");
-                } else {
-                    console.log("usePlanAccess: Fetching plan for businessId =", businessId);
-                    const { data } = await api.get(`/api/subscriptions/business/${businessId}/effective-plan`);
-                    console.log("usePlanAccess: API response =", data);
-                    if (!cancelled) {
-                        const newSource = data?.source ?? "NONE";
-                        setSource(newSource);
-                    }
-                }
-            } catch (error) {
-                console.error("usePlanAccess: API error =", error);
-                if (!cancelled) setSource("NONE");
-            } finally {
-                if (!cancelled) {
-                    console.log("usePlanAccess: Setting loading = false");
-                    setLoading(false);
-                }
-            }
-        };
+        const { data } = await api.get(`/api/subscriptions/business/${businessId}/effective-plan`);
 
-        run();
+        if (!cancelled) {
+          const newSource = data?.source ?? "NONE";
+          const newTier = data?.tier ?? null;
 
-        return () => {
-            console.log("usePlanAccess: Effect cleanup");
-            cancelled = true;
-        };
-    }, [businessId, permsHydrated, isSuperAdmin]); // ← add isSuperAdmin to deps
+          setSource(newSource);
+          setTier(newTier);
+        }
+      } catch (error) {
+        console.error("usePlanAccess error:", error);
 
-    // Super admin is always considered admin-like and has active plan
-    const isAdmin = isSuperAdmin || (permsHydrated && currentUser?.username === "admin");
+        if (!cancelled) {
+          setSource("NONE");
+          setTier(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    const hasActive = isSuperAdmin || isAdmin || source === "TRIAL" || source === "SUBSCRIPTION";
+    run();
 
-    console.log("usePlanAccess: Final state", { loading, source, hasActive, isAdmin, isSuperAdmin });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, permsHydrated, isSuperAdmin]);
 
-    return { loading, source, hasActive };
+  const tierUpper = String(tier || "").toUpperCase();
+
+  const isAdmin = isSuperAdmin || (permsHydrated && currentUser?.username === "admin");
+
+  const hasActive = isSuperAdmin || isAdmin || source === "TRIAL" || source === "SUBSCRIPTION";
+
+  const isDashboardOnlyPlan = ["DISCOVER", "MONITOR", "INTELLIGENCE"].includes(tierUpper);
+
+  // Business plans/subscriptions that must NOT see Dashboard in sidebar
+  const shouldHideDashboard = ["PLATINUM", "BRONZE", "GOLD", "SILVER"].includes(tierUpper);
+
+  return {
+    loading,
+    source,
+    tier,
+    hasActive,
+    isDashboardOnlyPlan,
+    shouldHideDashboard,
+  };
 }

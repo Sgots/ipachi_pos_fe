@@ -29,7 +29,7 @@ import client from "../api/client";
 import { API, endpoints } from "../api/endpoints";
 import ProductCard from "../components/ProductCard";
 import { useAuth } from "../auth/AuthContext";
-
+import { usePlanAccess } from "../hooks/usePlanAccess";
 type ProductSaleMode = "PER_UNIT" | "BY_WEIGHT";
 
 type LineItem = {
@@ -63,10 +63,54 @@ type ProductItem = {
 type PaymentMethod = "CASH" | "CARD" | "ACCOUNT";
 
 const CashTill: React.FC = () => {
-    const { currentUser, terminalId, can } = useAuth();
+const { currentUser, terminalId, can, businessId: authBusinessId } = useAuth() as any;
+const { tier, hasActive } = usePlanAccess();
+
+const planTier = String(tier || "").toUpperCase();
+
+const ADMIN_CAN_VIEW_SELECTED_SME_TILL =
+  Boolean(hasActive) &&
+  ["INTELLIGENCE", "MONITOR"].includes(planTier);
     const terminal = terminalId ?? "TERMINAL_001";
     const userId = currentUser?.id ?? 1;
+const isCashTillViewOnlyRoute =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("viewOnly") === "1";
 
+const selectedCashTillBusinessId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("x.cashTill.business.id") || ""
+    : "";
+
+const selectedCashTillBusinessName =
+  typeof window !== "undefined"
+    ? localStorage.getItem("x.cashTill.business.name") || ""
+    : "";
+
+const loggedInBusinessId =
+  authBusinessId ||
+  localStorage.getItem("x.own.business.id") ||
+  localStorage.getItem("x.business.id") ||
+  localStorage.getItem("activeBusinessId") ||
+  "";
+
+const tillBusinessId = isCashTillViewOnlyRoute
+  ? selectedCashTillBusinessId
+  : String(loggedInBusinessId || "");
+
+const tillBusinessName = isCashTillViewOnlyRoute
+  ? selectedCashTillBusinessName || "Selected SME"
+  : "My Business";
+
+const getTillHeaders = () => ({
+  "X-User-Id": userId.toString(),
+  ...(tillBusinessId
+    ? {
+        "X-Business-Id": tillBusinessId,
+        "X-Business-ID": tillBusinessId,
+      }
+    : {}),
+});
     // Audio context for cash till tone
     const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -95,7 +139,9 @@ const CashTill: React.FC = () => {
     };
 
     // ===== Role-based FRONTEND block for Admins only =====
-    const roles = (currentUser?.roles ?? []).map((r) => String(r).toUpperCase());
+const roles = ((currentUser?.roles ?? []) as unknown[]).map((r: unknown) =>
+  String(r).toUpperCase()
+);
     const roleStr = (currentUser as any)?.role ? String((currentUser as any).role).toUpperCase() : null;
     const isAdminRole =
         roles.includes("ADMIN") ||
@@ -104,11 +150,51 @@ const CashTill: React.FC = () => {
         roleStr === "ROLE_ADMIN";
 
     // Permission flags (then override with Admin block)
-    const CAN_VIEW   = (can?.("CASH_TILL", "VIEW")   ?? false) && !isAdminRole;
-    const CAN_CREATE = (can?.("CASH_TILL", "CREATE") ?? false) && !isAdminRole;
-    const CAN_EDIT   = (can?.("CASH_TILL", "EDIT")   ?? false) && !isAdminRole;
-    const CAN_DELETE = (can?.("CASH_TILL", "DELETE") ?? false) && !isAdminRole;
+  // Service providers can view the selected SME till only.
+  // They must not add items, edit cart, delete lines, or checkout.
+ const SERVICE_PROVIDER_VIEW_ONLY =
+   isCashTillViewOnlyRoute &&
+   Boolean(selectedCashTillBusinessId) &&
+   ADMIN_CAN_VIEW_SELECTED_SME_TILL;
+  // Permission flags
+  /*
+    Cash Till access rules:
 
+    1. Normal SME users:
+       - Existing permissions apply.
+       - They can sell only if they have CASH_TILL CREATE/EDIT/DELETE.
+
+    2. Admin/service provider with MONITOR or INTELLIGENCE:
+       - Can open selected SME Cash Till through ?viewOnly=1.
+       - View only.
+       - Cannot add items.
+       - Cannot edit quantities.
+       - Cannot remove items.
+       - Cannot checkout.
+
+    3. Admin/service provider with DISCOVER:
+       - Cannot open SME Cash Till.
+       - Button is disabled on dashboard.
+  */
+
+  const BLOCK_ADMIN_NORMAL_TILL =
+    isAdminRole && !SERVICE_PROVIDER_VIEW_ONLY;
+
+  const CAN_VIEW =
+    SERVICE_PROVIDER_VIEW_ONLY ||
+    ((can?.("CASH_TILL", "VIEW") ?? false) && !BLOCK_ADMIN_NORMAL_TILL);
+
+  const CAN_CREATE =
+    !SERVICE_PROVIDER_VIEW_ONLY &&
+    ((can?.("CASH_TILL", "CREATE") ?? false) && !BLOCK_ADMIN_NORMAL_TILL);
+
+  const CAN_EDIT =
+    !SERVICE_PROVIDER_VIEW_ONLY &&
+    ((can?.("CASH_TILL", "EDIT") ?? false) && !BLOCK_ADMIN_NORMAL_TILL);
+
+  const CAN_DELETE =
+    !SERVICE_PROVIDER_VIEW_ONLY &&
+    ((can?.("CASH_TILL", "DELETE") ?? false) && !BLOCK_ADMIN_NORMAL_TILL);
     const asStr = (v: string | number | null | undefined) => (v == null ? "" : String(v));
 
     const [cart, setCart] = useState<LineItem[]>([]);
@@ -196,7 +282,7 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
         setLoadingProducts(true);
         try {
             const res = await client.get(`${endpoints.inventory.products}/all`, {
-                headers: { "X-User-Id": userId.toString() },
+                headers: getTillHeaders(),
             });
             const payload = Array.isArray(res.data?.data ?? res.data)
                 ? res.data.data ?? res.data
@@ -219,7 +305,7 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
                 const url = search
                     ? `${endpoints.inventory.products}?q=${encodeURIComponent(search)}`
                     : `${endpoints.inventory.products}/all`;
-                const res = await client.get(url, { headers: { "X-User-Id": userId.toString() } });
+                const res = await client.get(url, { headers: getTillHeaders() });
                 const payload = Array.isArray(res.data?.data ?? res.data)
                     ? res.data.data ?? res.data
                     : res.data.items ?? res.data.content ?? [];
@@ -250,7 +336,7 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
         playCashTillTone(); // Play sound when item is added
         try {
             const res = await client.get(endpoints.inventory.lookup(sku), {
-                headers: { "X-User-Id": userId.toString() },
+                headers: getTillHeaders(),
             });
             const p = res.data?.data ?? res.data ?? {};
             const name = p.name ?? p.productName ?? sku;
@@ -404,7 +490,7 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
             if (numericTerminal) body.terminalId = numericTerminal;
 
             await client.post(API.till.checkout, body, {
-                headers: { "X-User-Id": userId.toString() },
+                headers: getTillHeaders(),
             });
 
             // optimistic stock update (only for positive quantities actually checked out)
@@ -470,7 +556,15 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
     };
 
     return (
-        <Box className="grid grid-cols-12 gap-4">
+      <Box className="grid grid-cols-12 gap-4">
+        {SERVICE_PROVIDER_VIEW_ONLY && (
+          <Box className="col-span-12">
+            <Alert severity="info" sx={{ mb: 1 }}>
+              Viewing Cash Till for <strong>{tillBusinessName}</strong>. This is read-only access.
+              Adding items, editing quantities, removing items, and checkout are disabled.
+            </Alert>
+          </Box>
+        )}
             {/* LEFT: Cart + sticky PAY footer */}
             <Paper
                 className="col-span-4 p-4 flex flex-col"
@@ -632,43 +726,47 @@ const searchInputRef = useRef<HTMLInputElement | null>(null);
 
                 <Divider />
 
-                <div className="grid xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2 grid-cols-2 gap-4">
-                    {loadingProducts ? (
-                        <div className="col-span-full flex justify-center py-6">
-                            <CircularProgress />
-                        </div>
-                    ) : (
-                        products.map((p) => (
-                            <ProductCard
-                                key={p.sku}
-                                sku={p.sku}
-                                name={
-                                    p.saleMode === "BY_WEIGHT" && (p.unitAbbr || p.unitName)
-                                        ? `${p.name} (${p.unitAbbr ?? p.unitName})`
-                                        : p.name
-                                }
-                                price={p.price}
-                                stock={p.stock}
-                                lowStock={p.lowStock}
-                                img={p.img}
-                                onAdd={() => {
-                                    if (p.stock > 0) addToCart(p.sku);
-                                }}
-                                disabled={refreshing || p.stock <= 0 || !CAN_EDIT}
-                                animateDelta={animateMap[p.sku] ?? 0}
-                                onQuantityChange={() => {
-                                    setAnimateMap((prev) => {
-                                        const next = { ...prev };
-                                        delete next[p.sku];
-                                        return next;
-                                    });
-
-                                }}
-                                  onSpecial={p.onSpecial} // <-- NEW
-                            />
-                        ))
-                    )}
-                </div>
+               <div className="grid xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2 grid-cols-2 gap-4">
+                 {loadingProducts ? (
+                   <div className="col-span-full flex justify-center py-6">
+                     <CircularProgress />
+                   </div>
+                 ) : (
+                   products.map((p) => (
+                     <ProductCard
+                       key={p.sku}
+                       sku={p.sku}
+                       name={
+                         p.saleMode === "BY_WEIGHT" && (p.unitAbbr || p.unitName)
+                           ? `${p.name} (${p.unitAbbr ?? p.unitName})`
+                           : p.name
+                       }
+                       price={p.price}
+                       stock={p.stock}
+                       lowStock={p.lowStock}
+                       img={p.img}
+                       userIdHeader={userId.toString()}
+                       businessIdHeader={tillBusinessId}
+                       onAdd={() => {
+                         if (p.stock > 0 && CAN_EDIT) {
+                           addToCart(p.sku);
+                         }
+                       }}
+                       disabled={SERVICE_PROVIDER_VIEW_ONLY || refreshing || p.stock <= 0 || !CAN_EDIT}
+                       viewOnly={SERVICE_PROVIDER_VIEW_ONLY}
+                       animateDelta={animateMap[p.sku] ?? 0}
+                       onQuantityChange={() => {
+                         setAnimateMap((prev) => {
+                           const next = { ...prev };
+                           delete next[p.sku];
+                           return next;
+                         });
+                       }}
+                       onSpecial={p.onSpecial}
+                     />
+                   ))
+                 )}
+               </div>
             </Box>
 
             {/* Payment Dialog */}
