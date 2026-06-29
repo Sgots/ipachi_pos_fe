@@ -7,22 +7,6 @@ Tablet-friendly POS portal with Customers, Inventory, Cash Till, Transactions, a
 npm install
 npm run dev
 ```
-Backend expected on `http://localhost:8080` with endpoints:
-- `POST   /auth/login`
-- `GET    /api/customers`
-- `POST   /api/customers`
-- `GET    /api/customers?search=...`
-- `GET    /features/global`
-- `PUT    /features/global`
-- `GET    /features/customer/{id}`
-- `PUT    /features/customer/{id}`
-- `GET    /api/inventory`
-- `POST   /api/inventory`
-- `GET    /api/inventory/lookup?sku=...`
-- `POST   /api/cash-till/checkout`
-- `GET    /api/transactions`
-
-## Notes
-- MUI for components + Tailwind for layout/spacing.
+ for layout/spacing.
 - Simple auth context; return a JWT token from `/auth/login` to secure calls.
 - Vite dev server proxies `/api`, `/features`, `/auth` to `localhost:8080`.
